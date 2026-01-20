@@ -9,6 +9,7 @@ export default function SellerProducts() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [priceForm, setPriceForm] = useState({
     sellerPrice: '', unitValue: '', unitMeasure: '', stock: '', minOrderQty: '1', maxOrderQty: '', deliveryTime: '24 hours', discount: '0'
   });
@@ -21,6 +22,11 @@ export default function SellerProducts() {
       Pack: ['pack', 'box', 'bundle', 'carton']
     };
     return options[unitType] || [];
+  };
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 4000);
   };
 
   useEffect(() => {
@@ -53,45 +59,74 @@ export default function SellerProducts() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const sellerId = localStorage.getItem('sellerId');
-    const res = await fetch('/api/seller/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sellerId, productId: selectedProduct._id,
-        sellerPrice: parseFloat(priceForm.sellerPrice), unitValue: parseFloat(priceForm.unitValue), unitMeasure: priceForm.unitMeasure,
-        stock: parseInt(priceForm.stock), minOrderQty: parseInt(priceForm.minOrderQty), maxOrderQty: priceForm.maxOrderQty ? parseInt(priceForm.maxOrderQty) : null,
-        deliveryTime: priceForm.deliveryTime, discount: parseFloat(priceForm.discount)
-      })
-    });
-    if (res.ok) {
-      setShowAddModal(false); setSelectedProduct(null); resetForm();
-      fetchSellerProducts(sellerId!);
-    } else {
-      alert((await res.json()).error || 'Failed to add product');
+    try {
+      const res = await fetch('/api/seller/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sellerId, productId: selectedProduct._id,
+          sellerPrice: parseFloat(priceForm.sellerPrice), unitValue: parseFloat(priceForm.unitValue), unitMeasure: priceForm.unitMeasure,
+          stock: parseInt(priceForm.stock), minOrderQty: parseInt(priceForm.minOrderQty), maxOrderQty: priceForm.maxOrderQty ? parseInt(priceForm.maxOrderQty) : null,
+          deliveryTime: priceForm.deliveryTime, discount: parseFloat(priceForm.discount)
+        })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        showNotification('success', 'Product added successfully!');
+        setShowAddModal(false); setSelectedProduct(null); resetForm();
+        fetchSellerProducts(sellerId!);
+      } else {
+        showNotification('error', result.error || 'Failed to add product');
+      }
+    } catch (error) {
+      showNotification('error', 'Network error. Please try again.');
     }
   };
 
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/seller/products', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: editingProduct._id, sellerPrice: parseFloat(priceForm.sellerPrice), unitValue: parseFloat(priceForm.unitValue), unitMeasure: priceForm.unitMeasure,
-        stock: parseInt(priceForm.stock), minOrderQty: parseInt(priceForm.minOrderQty), maxOrderQty: priceForm.maxOrderQty ? parseInt(priceForm.maxOrderQty) : null,
-        deliveryTime: priceForm.deliveryTime, discount: parseFloat(priceForm.discount)
-      })
-    });
-    if (res.ok) {
-      setEditingProduct(null); resetForm();
-      fetchSellerProducts(localStorage.getItem('sellerId')!);
+    try {
+      const res = await fetch('/api/seller/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingProduct._id, sellerPrice: parseFloat(priceForm.sellerPrice), unitValue: parseFloat(priceForm.unitValue), unitMeasure: priceForm.unitMeasure,
+          stock: parseInt(priceForm.stock), minOrderQty: parseInt(priceForm.minOrderQty), maxOrderQty: priceForm.maxOrderQty ? parseInt(priceForm.maxOrderQty) : null,
+          deliveryTime: priceForm.deliveryTime, discount: parseFloat(priceForm.discount)
+        })
+      });
+      if (res.ok) {
+        showNotification('success', 'Product updated successfully!');
+        setEditingProduct(null); resetForm();
+        fetchSellerProducts(localStorage.getItem('sellerId')!);
+      } else {
+        showNotification('error', 'Failed to update product');
+      }
+    } catch (error) {
+      showNotification('error', 'Network error. Please try again.');
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm('Remove this product?')) return;
-    const res = await fetch(`/api/seller/products?id=${id}`, { method: 'DELETE' });
-    if (res.ok) fetchSellerProducts(localStorage.getItem('sellerId')!);
+    // Open in-app confirmation modal instead of using native confirm()
+    setConfirmDeleteId(id);
+  };
+
+  const performDeleteProduct = async (id: string | null) => {
+    if (!id) return;
+    try {
+      const res = await fetch(`/api/seller/products?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showNotification('success', 'Product removed successfully!');
+        fetchSellerProducts(localStorage.getItem('sellerId')!);
+      } else {
+        showNotification('error', 'Failed to remove product');
+      }
+    } catch (error) {
+      showNotification('error', 'Network error. Please try again.');
+    } finally {
+      setConfirmDeleteId(null);
+    }
   };
 
   const toggleActive = async (product: any) => {
@@ -103,7 +138,11 @@ export default function SellerProducts() {
     fetchSellerProducts(localStorage.getItem('sellerId')!);
   };
 
+  // state for in-app delete confirmation
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   const availableProducts = adminProducts.filter(ap => 
+    !sellerProducts.some(sp => sp.productId?._id === ap._id) &&
     (filterCategory === "All" || ap.category === filterCategory) &&
     (searchQuery === "" || ap.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -112,6 +151,14 @@ export default function SellerProducts() {
 
   return (
     <div className="p-8">
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg animate-slide-in ${
+          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white font-medium`}>
+          {notification.message}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">My Products</h2>
@@ -242,31 +289,187 @@ export default function SellerProducts() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleAddProduct} className="flex h-[75vh]">
-                {/* Left: Form */}
+              <form onSubmit={handleAddProduct} className="flex flex-col h-[75vh]">
+                <div className="flex flex-1 overflow-hidden">
+                  {/* Left: Form */}
+                  <div className="w-[55%] p-6 overflow-y-auto border-r">
+                    <div className="flex items-center gap-3 mb-6 pb-4 border-b">
+                      <img src={selectedProduct.images?.[0]} alt={selectedProduct.name} className="w-14 h-14 object-cover rounded-lg" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-base truncate">{selectedProduct.name}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs px-2 py-0.5 bg-red-50 text-red-600 font-medium rounded">{selectedProduct.unitType}</span>
+                          <span className="text-xs text-gray-500">{getUnitOptions(selectedProduct.unitType).join(', ')}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Pack Size *</label>
+                          <input type="number" step="0.01" value={priceForm.unitValue} onChange={(e) => setPriceForm({...priceForm, unitValue: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="500" required />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Unit *</label>
+                          <select value={priceForm.unitMeasure} onChange={(e) => setPriceForm({...priceForm, unitMeasure: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" required>
+                            <option value="">Select</option>
+                            {getUnitOptions(selectedProduct.unitType).map((unit: string) => <option key={unit} value={unit}>{unit}</option>)}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Your Price (₹) *</label>
+                          <input type="number" step="0.01" value={priceForm.sellerPrice} onChange={(e) => setPriceForm({...priceForm, sellerPrice: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="99" required />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Discount (%)</label>
+                          <input type="number" step="0.01" min="0" max="100" value={priceForm.discount} onChange={(e) => setPriceForm({...priceForm, discount: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="0" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Stock Quantity *</label>
+                          <input type="number" min="1" value={priceForm.stock} onChange={(e) => setPriceForm({...priceForm, stock: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="100" required />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Delivery Time *</label>
+                          <select value={priceForm.deliveryTime} onChange={(e) => setPriceForm({...priceForm, deliveryTime: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" required>
+                            <option value="24 hours">24 Hours</option>
+                            <option value="48 hours">48 Hours</option>
+                            <option value="3-5 days">3-5 Days</option>
+                            <option value="1 week">1 Week</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Min Order Qty *</label>
+                          <input type="number" min="1" value={priceForm.minOrderQty} onChange={(e) => setPriceForm({...priceForm, minOrderQty: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="1" required />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Max Order Qty</label>
+                          <input type="number" min="1" value={priceForm.maxOrderQty} onChange={(e) => setPriceForm({...priceForm, maxOrderQty: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="Unlimited" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions inside form */}
+                    <div className="flex gap-3 pt-6 mt-6 border-t">
+                      <button type="button" onClick={() => setSelectedProduct(null)} className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 text-sm font-bold transition-all">← Back</button>
+                      <button type="submit" className="flex-[2] bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl font-bold hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl">Add to Catalog →</button>
+                    </div>
+                  </div>
+
+                  {/* Right: Preview */}
+                  <div className="w-[45%] bg-gradient-to-br from-gray-50 to-gray-100 p-6 flex flex-col">
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Live Preview</span>
+                      </div>
+                      <p className="text-xs text-gray-500">See how customers will view your product</p>
+                    </div>
+
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="w-full max-w-[280px]">
+                        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden transform hover:scale-105 transition-transform">
+                          <div className="relative">
+                            <img src={selectedProduct.images?.[0]} alt={selectedProduct.name} className="w-full h-48 object-cover" />
+                            <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-lg">
+                              <span className="text-sm font-bold">{selectedProduct.veg ? '🟢' : '🔴'}</span>
+                            </div>
+                            {priceForm.discount && parseFloat(priceForm.discount) > 0 && (
+                              <div className="absolute top-3 right-3 bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full shadow-lg">
+                                <span className="text-xs font-bold">{priceForm.discount}% OFF</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-4">
+                            <h4 className="font-bold text-base text-gray-900 mb-1.5 line-clamp-2 min-h-[48px]">{selectedProduct.name}</h4>
+                            <div className="mb-3">
+                              {priceForm.unitValue && priceForm.unitMeasure ? (
+                                <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">{priceForm.unitValue} {priceForm.unitMeasure}</span>
+                              ) : (
+                                <span className="text-xs text-gray-400 italic">Pack size not set</span>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                              {priceForm.sellerPrice ? (
+                                <div>
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold text-green-600">₹{priceForm.sellerPrice}</span>
+                                    {priceForm.discount && parseFloat(priceForm.discount) > 0 && (
+                                      <span className="text-sm text-gray-400 line-through">₹{(parseFloat(priceForm.sellerPrice) / (1 - parseFloat(priceForm.discount) / 100)).toFixed(0)}</span>
+                                    )}
+                                  </div>
+                                  {priceForm.discount && parseFloat(priceForm.discount) > 0 && (
+                                    <span className="text-xs text-green-600 font-semibold">Save ₹{(parseFloat(priceForm.sellerPrice) / (1 - parseFloat(priceForm.discount) / 100) - parseFloat(priceForm.sellerPrice)).toFixed(0)}</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-sm text-gray-400 italic">Price not set</span>
+                              )}
+                              <button type="button" className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-shadow">Add</button>
+                            </div>
+                            <div className="pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex items-center gap-1.5 text-gray-600">
+                                <span>🚚</span>
+                                <span className="font-medium">{priceForm.deliveryTime}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-gray-600">
+                                <span>📦</span>
+                                <span className="font-medium">{priceForm.stock || '0'} in stock</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+            <div className="border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold">Edit Product</h2>
+              <button onClick={() => { setEditingProduct(null); resetForm(); }} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
+
+            <form onSubmit={handleUpdateProduct} className="flex flex-col h-[75vh]">
+              <div className="flex flex-1 overflow-hidden">
                 <div className="w-[55%] p-6 overflow-y-auto border-r">
-                  <div className="flex items-center gap-3 mb-6 pb-4 border-b">
-                    <img src={selectedProduct.images?.[0]} alt={selectedProduct.name} className="w-14 h-14 object-cover rounded-lg" />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-base truncate">{selectedProduct.name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs px-2 py-0.5 bg-red-50 text-red-600 font-medium rounded">{selectedProduct.unitType}</span>
-                        <span className="text-xs text-gray-500">{getUnitOptions(selectedProduct.unitType).join(', ')}</span>
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                    <div className="flex gap-4">
+                      <img src={editingProduct.productId?.images?.[0]} alt={editingProduct.productId?.name} className="w-20 h-20 object-cover rounded-lg border-2 border-gray-200" />
+                      <div>
+                        <h3 className="font-bold text-lg">{editingProduct.productId?.name}</h3>
+                        <p className="text-sm text-gray-600">Current: {editingProduct.unitValue} {editingProduct.unitMeasure}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">Pack Size *</label>
-                        <input type="number" step="0.01" value={priceForm.unitValue} onChange={(e) => setPriceForm({...priceForm, unitValue: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="500" required />
+                        <input type="number" step="0.01" value={priceForm.unitValue} onChange={(e) => setPriceForm({...priceForm, unitValue: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" required />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">Unit *</label>
                         <select value={priceForm.unitMeasure} onChange={(e) => setPriceForm({...priceForm, unitMeasure: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" required>
                           <option value="">Select</option>
-                          {getUnitOptions(selectedProduct.unitType).map((unit: string) => <option key={unit} value={unit}>{unit}</option>)}
+                          {getUnitOptions(editingProduct.productId?.unitType).map((unit: string) => <option key={unit} value={unit}>{unit}</option>)}
                         </select>
                       </div>
                     </div>
@@ -309,9 +512,13 @@ export default function SellerProducts() {
                       </div>
                     </div>
                   </div>
+
+                  <div className="flex gap-3 pt-6 mt-6 border-t">
+                    <button type="button" onClick={() => { setEditingProduct(null); resetForm(); }} className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 text-sm font-bold transition-all">← Cancel</button>
+                    <button type="submit" className="flex-[2] bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl font-bold hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl">Update Product →</button>
+                  </div>
                 </div>
 
-                {/* Right: Preview */}
                 <div className="w-[45%] bg-gradient-to-br from-gray-50 to-gray-100 p-6 flex flex-col">
                   <div className="mb-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -325,9 +532,9 @@ export default function SellerProducts() {
                     <div className="w-full max-w-[280px]">
                       <div className="bg-white rounded-2xl shadow-2xl overflow-hidden transform hover:scale-105 transition-transform">
                         <div className="relative">
-                          <img src={selectedProduct.images?.[0]} alt={selectedProduct.name} className="w-full h-48 object-cover" />
+                          <img src={editingProduct.productId?.images?.[0]} alt={editingProduct.productId?.name} className="w-full h-48 object-cover" />
                           <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-lg">
-                            <span className="text-sm font-bold">{selectedProduct.veg ? '🟢' : '🔴'}</span>
+                            <span className="text-sm font-bold">{editingProduct.productId?.veg ? '🟢' : '🔴'}</span>
                           </div>
                           {priceForm.discount && parseFloat(priceForm.discount) > 0 && (
                             <div className="absolute top-3 right-3 bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full shadow-lg">
@@ -336,7 +543,7 @@ export default function SellerProducts() {
                           )}
                         </div>
                         <div className="p-4">
-                          <h4 className="font-bold text-base text-gray-900 mb-1.5 line-clamp-2 min-h-[48px]">{selectedProduct.name}</h4>
+                          <h4 className="font-bold text-base text-gray-900 mb-1.5 line-clamp-2 min-h-[48px]">{editingProduct.productId?.name}</h4>
                           <div className="mb-3">
                             {priceForm.unitValue && priceForm.unitMeasure ? (
                               <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">{priceForm.unitValue} {priceForm.unitMeasure}</span>
@@ -377,67 +584,21 @@ export default function SellerProducts() {
                     </div>
                   </div>
                 </div>
-
-                {/* Bottom Actions */}
-                <div className="absolute bottom-0 left-0 right-0 bg-white border-t p-4 flex gap-3">
-                  <button type="button" onClick={() => setSelectedProduct(null)} className="px-6 py-2.5 border-2 border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-semibold transition-colors">Back</button>
-                  <button type="submit" className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2.5 rounded-lg font-bold hover:from-red-600 hover:to-red-700 transition-all shadow-lg text-sm">Add to Catalog</button>
-                </div>
-              </form>
-            )}
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="border-b px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold">Edit Product</h2>
-              <button onClick={() => { setEditingProduct(null); resetForm(); }} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-2">Remove product?</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to remove this product from your catalog?</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 border rounded">Cancel</button>
+              <button onClick={() => performDeleteProduct(confirmDeleteId)} className="px-4 py-2 bg-red-600 text-white rounded">Remove</button>
             </div>
-            
-            <form onSubmit={handleUpdateProduct} className="p-6 space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <div className="flex gap-4">
-                  <img src={editingProduct.productId?.images?.[0]} alt={editingProduct.productId?.name} className="w-20 h-20 object-cover rounded-lg border-2 border-gray-200" />
-                  <div>
-                    <h3 className="font-bold text-lg">{editingProduct.productId?.name}</h3>
-                    <p className="text-sm text-gray-600">Current: {editingProduct.unitValue} {editingProduct.unitMeasure}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-2">Pack Size Value *</label><input type="number" step="0.01" value={priceForm.unitValue} onChange={(e) => setPriceForm({...priceForm, unitValue: e.target.value})} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500" required /></div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Unit *</label>
-                  <select value={priceForm.unitMeasure} onChange={(e) => setPriceForm({...priceForm, unitMeasure: e.target.value})} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500" required>
-                    <option value="">Select</option>
-                    {getUnitOptions(editingProduct.productId?.unitType).map((unit: string) => <option key={unit} value={unit}>{unit}</option>)}
-                  </select>
-                </div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-2">Price (₹) *</label><input type="number" step="0.01" value={priceForm.sellerPrice} onChange={(e) => setPriceForm({...priceForm, sellerPrice: e.target.value})} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500" required /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-2">Discount (%)</label><input type="number" step="0.01" min="0" max="100" value={priceForm.discount} onChange={(e) => setPriceForm({...priceForm, discount: e.target.value})} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-2">Stock *</label><input type="number" min="1" value={priceForm.stock} onChange={(e) => setPriceForm({...priceForm, stock: e.target.value})} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500" required /></div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Time *</label>
-                  <select value={priceForm.deliveryTime} onChange={(e) => setPriceForm({...priceForm, deliveryTime: e.target.value})} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500" required>
-                    <option value="24 hours">24 Hours</option>
-                    <option value="48 hours">48 Hours</option>
-                    <option value="3-5 days">3-5 Days</option>
-                    <option value="1 week">1 Week</option>
-                  </select>
-                </div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-2">Min Order Qty *</label><input type="number" min="1" value={priceForm.minOrderQty} onChange={(e) => setPriceForm({...priceForm, minOrderQty: e.target.value})} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500" required /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-2">Max Order Qty</label><input type="number" min="1" value={priceForm.maxOrderQty} onChange={(e) => setPriceForm({...priceForm, maxOrderQty: e.target.value})} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500" placeholder="No limit" /></div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => { setEditingProduct(null); resetForm(); }} className="px-6 py-3 border rounded-lg hover:bg-gray-50">Cancel</button>
-                <button type="submit" className="flex-1 bg-red-500 text-white py-3 rounded-lg font-semibold hover:bg-red-600">Update</button>
-              </div>
-            </form>
           </div>
         </div>
       )}

@@ -23,19 +23,24 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
-    const { sellerId, productId, sellerPrice, stock, minOrderQty, deliveryTime } = await req.json();
+    const data = await req.json();
+    const { sellerId, productId, sellerPrice, unitValue, unitMeasure, stock, minOrderQty, maxOrderQty, deliveryTime, discount } = data;
     
-    if (!sellerId || !productId || !sellerPrice) {
+    if (!sellerId || !productId || !sellerPrice || !unitValue || !unitMeasure) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
-    const sellerProduct = await SellerProduct.create({ sellerId, productId, sellerPrice, stock, minOrderQty, deliveryTime });
+    const sellerProduct = await SellerProduct.create({ 
+      sellerId, productId, sellerPrice, unitValue, unitMeasure, stock, 
+      minOrderQty, maxOrderQty, deliveryTime, discount 
+    });
     return NextResponse.json({ success: true, product: sellerProduct });
   } catch (error: any) {
+    console.error('Error adding product:', error);
     if (error.code === 11000) {
-      return NextResponse.json({ error: 'Product already added' }, { status: 400 });
+      return NextResponse.json({ error: 'Product already added with this pack size' }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Failed to add product' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to add product' }, { status: 500 });
   }
 }
 
