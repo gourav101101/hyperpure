@@ -5,7 +5,6 @@ import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import Footer from "../components/Footer";
 import LogoutModal from "../components/LogoutModal";
-import { useState } from "react";
 
 export default function ProfilePage() {
   const router = useRouter();

@@ -34,17 +34,22 @@ export default function SellerDashboard() {
       const res = await fetch(`/api/seller/products?sellerId=${sellerId}`);
       const data = await res.json();
       const prods = data.products || [];
-      setProducts(prods);
+      
+      // Filter out products with null/undefined productId
+      const validProducts = prods.filter((p: any) => p.productId && p.productId._id);
+      setProducts(validProducts);
       
       // Calculate real stats
-      const totalProducts = prods.length;
-      const activeProducts = prods.filter((p: any) => p.isActive).length;
-      const lowStock = prods.filter((p: any) => p.stock < 10).length;
-      const totalRevenue = prods.reduce((sum: number, p: any) => sum + (p.sellerPrice * (p.stock || 0)), 0);
+      const totalProducts = validProducts.length;
+      const activeProducts = validProducts.filter((p: any) => p.isActive).length;
+      const lowStock = validProducts.filter((p: any) => p.stock < 10).length;
+      const totalRevenue = validProducts.reduce((sum: number, p: any) => sum + (p.sellerPrice * (p.stock || 0)), 0);
       
       setStats({ totalProducts, activeProducts, lowStock, totalRevenue, totalOrders: 0 });
     } catch (error) {
       console.error('Failed to fetch products');
+      setProducts([]);
+      setStats({ totalProducts: 0, activeProducts: 0, lowStock: 0, totalRevenue: 0, totalOrders: 0 });
     }
   };
 
@@ -171,7 +176,7 @@ export default function SellerDashboard() {
           </div>
 
           {/* Recent Products */}
-          {products.length > 0 && (
+          {products.length > 0 ? (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900">Recent Products</h3>
@@ -198,6 +203,15 @@ export default function SellerDashboard() {
                   );
                 })}
               </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
+              <div className="text-6xl mb-4">📦</div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">No Products Yet</h3>
+              <p className="text-gray-600 mb-6">Start by adding products to your catalog</p>
+              <Link href="/seller/products" className="inline-block px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-semibold">
+                Add Your First Product
+              </Link>
             </div>
           )}
     </div>

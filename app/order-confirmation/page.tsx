@@ -1,10 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-export default function OrderConfirmation() {
+function OrderConfirmationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [order, setOrder] = useState<any>(null);
@@ -88,5 +88,20 @@ export default function OrderConfirmation() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function OrderConfirmation() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50">
+        <Header isLoggedIn={true} />
+        <main className="pt-32 pb-20 px-6">
+          <div className="max-w-2xl mx-auto text-center">Loading...</div>
+        </main>
+      </div>
+    }>
+      <OrderConfirmationContent />
+    </Suspense>
   );
 }

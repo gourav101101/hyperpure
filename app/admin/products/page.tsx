@@ -2,21 +2,25 @@
 import { useState, useEffect } from "react";
 import AdminHeader from "../components/AdminHeader";
 import AdminSidebar from "../components/AdminSidebar";
+import ConfirmModal from "../components/ConfirmModal";
 
 interface Product {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
-  unit: string;
+  unit?: string;
+  unitType?: string;
   category: string;
+  subcategory?: string;
   images: string[];
   veg: boolean;
   description: string;
   keyFeatures: string[];
   servingInstructions: string[];
-  packSize: string;
   sku?: string;
   brand?: string;
   manufacturer?: string;
+  inStock?: boolean;
 }
 
 export default function ProductsAdmin() {
@@ -33,16 +37,16 @@ export default function ProductsAdmin() {
   const [filterStock, setFilterStock] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [sellerCounts, setSellerCounts] = useState<any>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<{isOpen: boolean, productId: string | null}>({isOpen: false, productId: null});
   const [formData, setFormData] = useState({
     name: "",
-    unit: "",
+    unitType: "",
     category: "",
     subcategory: "",
     veg: true,
     description: "",
     keyFeatures: "",
     servingInstructions: "",
-    packSize: "",
     sku: ""
   });
 
@@ -130,14 +134,13 @@ export default function ProductsAdmin() {
     try {
       const data = {
         name: formData.name,
-        unit: formData.unit,
+        unitType: formData.unitType,
         category: formData.category,
         subcategory: formData.subcategory,
         veg: formData.veg,
         description: formData.description,
         keyFeatures: formData.keyFeatures.split("\n").filter(f => f.trim()),
         servingInstructions: formData.servingInstructions.split("\n").filter(f => f.trim()),
-        packSize: formData.packSize,
         sku: formData.sku,
         images: uploadedImages
       };
@@ -160,8 +163,8 @@ export default function ProductsAdmin() {
       }
       
       setFormData({
-        name: "", unit: "", category: "", subcategory: "", veg: true, description: "",
-        keyFeatures: "", servingInstructions: "", packSize: "", sku: ""
+        name: "", unitType: "", category: "", subcategory: "", veg: true, description: "",
+        keyFeatures: "", servingInstructions: "", sku: ""
       });
       setUploadedImages([]);
       setShowModal(false);
@@ -172,28 +175,32 @@ export default function ProductsAdmin() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Delete this product?")) {
+    setDeleteConfirm({isOpen: true, productId: id});
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirm.productId) {
       try {
-        await fetch(`/api/products?id=${id}`, { method: 'DELETE' });
+        await fetch(`/api/products?id=${deleteConfirm.productId}`, { method: 'DELETE' });
         showNotification('success', 'Product deleted successfully!');
         fetchProducts();
       } catch (error) {
         showNotification('error', 'Failed to delete product');
       }
     }
+    setDeleteConfirm({isOpen: false, productId: null});
   };
 
   const handleEdit = (prod: Product) => {
     setFormData({
       name: prod.name,
-      unit: prod.unit,
+      unitType: (prod as any).unitType || "",
       category: prod.category,
       subcategory: (prod as any).subcategory || "",
       veg: prod.veg,
       description: prod.description,
       keyFeatures: prod.keyFeatures.join("\n"),
       servingInstructions: prod.servingInstructions.join("\n"),
-      packSize: prod.packSize,
       sku: prod.sku || ""
     });
     setUploadedImages(prod.images);
@@ -203,8 +210,8 @@ export default function ProductsAdmin() {
 
   const openAddModal = () => {
     setFormData({
-      name: "", unit: "", category: "", subcategory: "", veg: true, description: "",
-      keyFeatures: "", servingInstructions: "", packSize: "", sku: ""
+      name: "", unitType: "", category: "", subcategory: "", veg: true, description: "",
+      keyFeatures: "", servingInstructions: "", sku: ""
     });
     setUploadedImages([]);
     setEditId(null);
@@ -284,8 +291,15 @@ export default function ProductsAdmin() {
                       <input type="text" placeholder="Product Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" required />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Unit *</label>
-                      <input type="text" placeholder="e.g., 1 kg, 500g, 12 pcs" value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" required />
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Unit Type *</label>
+                      <select value={formData.unitType} onChange={(e) => setFormData({...formData, unitType: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" required>
+                        <option value="">Select Unit Type</option>
+                        <option value="Weight">Weight (kg, g, lb)</option>
+                        <option value="Volume">Volume (L, ml, gal)</option>
+                        <option value="Piece">Piece (pc, dozen)</option>
+                        <option value="Pack">Pack (pack, box, bundle)</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Sellers will set exact unit (e.g., 500g, 1kg)</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">SKU</label>
@@ -306,10 +320,6 @@ export default function ProductsAdmin() {
                           <option key={idx} value={sub.name}>{sub.name}</option>
                         ))}
                       </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Pack Size</label>
-                      <input type="text" placeholder="Pack Size" value={formData.packSize} onChange={(e) => setFormData({...formData, packSize: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
@@ -374,7 +384,7 @@ export default function ProductsAdmin() {
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-800 mb-1 line-clamp-2 min-h-[40px]">{prod.name}</h3>
-                  <p className="text-xs text-gray-500 mb-3">{prod.unit} • {prod.category}</p>
+                  <p className="text-xs text-gray-500 mb-3">{(prod as any).unitType} • {prod.category}</p>
                   
                   {/* Seller Count Badge */}
                   <div className="mb-3">
@@ -417,6 +427,15 @@ export default function ProductsAdmin() {
           )}
         </main>
       </div>
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Product"
+        message="Are you sure you want to delete this product? This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm({isOpen: false, productId: null})}
+        type="danger"
+      />
     </div>
   );
 }

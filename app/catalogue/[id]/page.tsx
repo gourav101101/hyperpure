@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart } from "../../context/CartContext";
 
 interface Product {
+  _id?: string;
   id: string;
   name: string;
   price: number;

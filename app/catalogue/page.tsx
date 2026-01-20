@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
@@ -7,7 +7,7 @@ import Link from "next/link";
 import Footer from "../components/Footer";
 import { useCart } from "../context/CartContext";
 
-export default function Catalogue() {
+function CatalogueContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { addToCart } = useCart();
@@ -224,5 +224,13 @@ export default function Catalogue() {
       {isLoggedIn && <BottomNav />}
       <Footer />
     </div>
+  );
+}
+
+export default function Catalogue() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>}>
+      <CatalogueContent />
+    </Suspense>
   );
 }

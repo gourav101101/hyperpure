@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 interface Product {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
   price: number;
   unit: string;

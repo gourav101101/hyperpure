@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AdminHeader from "../components/AdminHeader";
 import AdminSidebar from "../components/AdminSidebar";
+import NotificationSystem from "../components/NotificationSystem";
+import { useNotifications } from "../hooks/useNotifications";
 
 export default function AdminSellers() {
   const router = useRouter();
@@ -13,6 +15,7 @@ export default function AdminSellers() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const { notifications, removeNotification, showError } = useNotifications();
 
   useEffect(() => {
     const adminAuth = localStorage.getItem('adminAuth');
@@ -96,7 +99,9 @@ export default function AdminSellers() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <NotificationSystem notifications={notifications} onRemove={removeNotification} />
+      <div className="min-h-screen bg-gray-50">
       <AdminHeader />
       <div className="flex pt-[73px]">
         <AdminSidebar />
@@ -121,7 +126,7 @@ export default function AdminSellers() {
               <p className="text-xs text-green-600">Active Sellers</p>
             </div>
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <div className="text-2xl font-bold text-blue-700">{Object.values(sellerProducts).reduce((a: any, b: any) => a + b, 0)}</div>
+              <div className="text-2xl font-bold text-blue-700">{(Object.values(sellerProducts) as number[]).reduce((a, b) => a + b, 0)}</div>
               <p className="text-xs text-blue-600">Total Products</p>
             </div>
             <div className="bg-red-50 rounded-lg p-4 border border-red-200">
@@ -282,7 +287,7 @@ export default function AdminSellers() {
                         if (rejectionReason.trim()) {
                           handleAction(selectedSeller._id, 'reject');
                         } else {
-                          alert('Please provide rejection reason');
+                          showError('Please provide rejection reason');
                         }
                       }}
                       className="flex-1 bg-red-500 text-white py-3 px-4 rounded-lg hover:bg-red-600 font-medium"
@@ -339,5 +344,6 @@ export default function AdminSellers() {
         </div>
       )}
     </div>
+    </>
   );
 }

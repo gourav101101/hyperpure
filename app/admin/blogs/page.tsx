@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import AdminHeader from "../components/AdminHeader";
 import AdminSidebar from "../components/AdminSidebar";
+import ConfirmModal from "../components/ConfirmModal";
 
 interface ContentBlock {
   id: string;
@@ -23,6 +24,7 @@ interface Blog {
 
 export default function BlogManagement() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState<{isOpen: boolean, blogId: number | null}>({isOpen: false, blogId: null});
 
   useEffect(() => {
     fetchBlogs();
@@ -102,10 +104,15 @@ export default function BlogManagement() {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm("Delete this blog?")) {
-      await fetch(`/api/blogs?id=${id}`, { method: 'DELETE' });
+    setDeleteConfirm({isOpen: true, blogId: id});
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirm.blogId) {
+      await fetch(`/api/blogs?id=${deleteConfirm.blogId}`, { method: 'DELETE' });
       fetchBlogs();
     }
+    setDeleteConfirm({isOpen: false, blogId: null});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -349,6 +356,15 @@ export default function BlogManagement() {
           )}
         </main>
       </div>
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Blog"
+        message="Are you sure you want to delete this blog? This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm({isOpen: false, blogId: null})}
+        type="danger"
+      />
     </div>
   );
 }

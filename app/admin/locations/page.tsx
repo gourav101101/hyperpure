@@ -2,11 +2,13 @@
 import { useState, useEffect } from "react";
 import AdminHeader from "../components/AdminHeader";
 import AdminSidebar from "../components/AdminSidebar";
+import ConfirmModal from "../components/ConfirmModal";
 
 export default function LocationsAdmin() {
   const [locations, setLocations] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{isOpen: boolean, locationId: string | null}>({isOpen: false, locationId: null});
   const [formData, setFormData] = useState({
     name: "",
     city: "",
@@ -47,10 +49,15 @@ export default function LocationsAdmin() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Delete this location?")) {
-      await fetch(`/api/locations?id=${id}`, { method: 'DELETE' });
+    setDeleteConfirm({isOpen: true, locationId: id});
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirm.locationId) {
+      await fetch(`/api/locations?id=${deleteConfirm.locationId}`, { method: 'DELETE' });
       fetchLocations();
     }
+    setDeleteConfirm({isOpen: false, locationId: null});
   };
 
   const handleEdit = (loc: any) => {
@@ -118,6 +125,15 @@ export default function LocationsAdmin() {
           </div>
         </main>
       </div>
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Location"
+        message="Are you sure you want to delete this location? This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm({isOpen: false, locationId: null})}
+        type="danger"
+      />
     </div>
   );
 }
