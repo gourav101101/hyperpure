@@ -2,149 +2,155 @@
 import { useEffect, useState } from "react";
 
 export default function SellerAnalytics() {
-  const [products, setProducts] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
+  const [period, setPeriod] = useState('7');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    fetchAnalytics();
+  }, [period]);
+
+  const fetchAnalytics = async () => {
+    setLoading(true);
     const sellerId = localStorage.getItem('sellerId');
-    if (sellerId) fetchAnalytics(sellerId);
-  }, []);
-
-  const fetchAnalytics = async (sellerId: string) => {
-    try {
-      const res = await fetch(`/api/seller/products?sellerId=${sellerId}`);
+    const res = await fetch(`/api/seller/analytics?sellerId=${sellerId}&period=${period}`);
+    if (res.ok) {
       const data = await res.json();
-      const prods = data.products || [];
-      setProducts(prods);
-
-      // Fetch market prices for each product
-      const marketData = await Promise.all(
-        prods.map(async (p: any) => {
-          const sellerRes = await fetch(`/api/products/sellers?productId=${p.productId._id}`);
-          const sellerData = await sellerRes.json();
-          return {
-            productId: p.productId._id,
-            productName: p.productId.name,
-            myPrice: p.sellerPrice,
-            sellers: sellerData.sellers || [],
-            lowestPrice: sellerData.sellers?.[0]?.sellerPrice || p.sellerPrice,
-            avgPrice: sellerData.sellers?.length > 0 
-              ? sellerData.sellers.reduce((sum: number, s: any) => sum + s.sellerPrice, 0) / sellerData.sellers.length 
-              : p.sellerPrice,
-            myRank: sellerData.sellers?.findIndex((s: any) => s._id === p._id) + 1 || 1,
-            totalSellers: sellerData.sellers?.length || 1
-          };
-        })
-      );
-
-      const cheapest = marketData.filter(m => m.myRank === 1).length;
-      const competitive = marketData.filter(m => m.myPrice <= m.avgPrice).length;
-      const expensive = marketData.filter(m => m.myPrice > m.avgPrice).length;
-
-      setAnalytics({ marketData, cheapest, competitive, expensive });
-    } catch (error) {
-      console.error('Failed to fetch analytics');
+      setAnalytics(data);
     }
     setLoading(false);
   };
 
-  if (loading) return <div className="p-8">Loading analytics...</div>;
+  if (loading || !analytics) {
+    return <div className="p-8">Loading analytics...</div>;
+  }
+
+  const maxRevenue = Math.max(...analytics.revenueChart.map((d: any) => d.revenue), 1);
 
   return (
     <div className="p-8">
-      <h2 className="text-2xl font-bold mb-2">Price Analytics</h2>
-      <p className="text-gray-600 mb-6">See how your prices compare to other sellers</p>
-
-      {/* Performance Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
-          <div className="text-4xl mb-2">🏆</div>
-          <div className="text-3xl font-bold">{analytics?.cheapest || 0}</div>
-          <div className="text-sm opacity-90">Cheapest Price</div>
-          <div className="text-xs opacity-75 mt-1">You have the best price</div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Analytics</h2>
+          <p className="text-sm text-gray-600 mt-1">Track your sales and performance</p>
         </div>
+        <select 
+          value={period} 
+          onChange={(e) => setPeriod(e.target.value)}
+          className="px-4 py-2 border-2 border-gray-300 rounded-lg font-medium"
+        >
+          <option value="7">Last 7 Days</option>
+          <option value="30">Last 30 Days</option>
+          <option value="90">Last 90 Days</option>
+        </select>
+      </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-          <div className="text-4xl mb-2">💰</div>
-          <div className="text-3xl font-bold">{analytics?.competitive || 0}</div>
-          <div className="text-sm opacity-90">Competitive</div>
-          <div className="text-xs opacity-75 mt-1">Below average price</div>
+          <p className="text-sm opacity-90 mb-1">Total Orders</p>
+          <p className="text-3xl font-bold">{analytics.summary.totalOrders}</p>
         </div>
-
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
+          <p className="text-sm opacity-90 mb-1">Total Revenue</p>
+          <p className="text-3xl font-bold">₹{analytics.summary.totalRevenue.toFixed(0)}</p>
+        </div>
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+          <p className="text-sm opacity-90 mb-1">Avg Order Value</p>
+          <p className="text-3xl font-bold">₹{analytics.summary.avgOrderValue.toFixed(0)}</p>
+        </div>
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-          <div className="text-4xl mb-2">⚠️</div>
-          <div className="text-3xl font-bold">{analytics?.expensive || 0}</div>
-          <div className="text-sm opacity-90">Above Average</div>
-          <div className="text-xs opacity-75 mt-1">Consider reducing price</div>
+          <p className="text-sm opacity-90 mb-1">Active Products</p>
+          <p className="text-3xl font-bold">{analytics.summary.totalProducts}</p>
         </div>
       </div>
 
-      {/* Price Comparison Table */}
-      <div className="bg-white rounded-xl border">
-        <div className="px-6 py-4 border-b">
-          <h3 className="font-bold text-lg">Product Price Comparison</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Your Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lowest</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Average</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Your Rank</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {analytics?.marketData.map((item: any) => (
-                <tr key={item.productId} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{item.productName}</div>
-                    <div className="text-xs text-gray-500">{item.totalSellers} sellers</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-lg font-bold">₹{item.myPrice}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-green-600">₹{item.lowestPrice.toFixed(2)}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-600">₹{item.avgPrice.toFixed(2)}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-bold">#{item.myRank} of {item.totalSellers}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {item.myRank === 1 ? (
-                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">🏆 Best Price</span>
-                    ) : item.myPrice <= item.avgPrice ? (
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">💰 Competitive</span>
-                    ) : (
-                      <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">⚠️ High</span>
-                    )}
-                  </td>
-                </tr>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Chart */}
+        <div className="bg-white rounded-xl border p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Revenue Trend</h3>
+          {analytics.revenueChart.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">No data available</div>
+          ) : (
+            <div className="space-y-2">
+              {analytics.revenueChart.map((item: any) => (
+                <div key={item.date} className="flex items-center gap-3">
+                  <div className="text-xs text-gray-600 w-20">
+                    {new Date(item.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                  </div>
+                  <div className="flex-1 bg-gray-100 rounded-full h-8 relative overflow-hidden">
+                    <div 
+                      className="bg-gradient-to-r from-green-400 to-green-600 h-full rounded-full flex items-center justify-end pr-3"
+                      style={{ width: `${(item.revenue / maxRevenue) * 100}%` }}
+                    >
+                      <span className="text-xs font-bold text-white">₹{item.revenue.toFixed(0)}</span>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
+        </div>
+
+        {/* Top Products */}
+        <div className="bg-white rounded-xl border p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Top Selling Products</h3>
+          {analytics.topProducts.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">No sales yet</div>
+          ) : (
+            <div className="space-y-3">
+              {analytics.topProducts.map((product: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{product.name}</p>
+                    <p className="text-xs text-gray-600">{product.quantity} units sold</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">₹{product.revenue.toFixed(0)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Suggestions */}
-      <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
-        <h3 className="font-bold text-blue-900 mb-3">💡 Pricing Suggestions</h3>
-        <ul className="space-y-2 text-sm text-blue-800">
-          {analytics?.marketData.filter((m: any) => m.myPrice > m.avgPrice).slice(0, 3).map((item: any) => (
-            <li key={item.productId}>
-              • <strong>{item.productName}</strong>: Consider reducing from ₹{item.myPrice} to ₹{item.avgPrice.toFixed(2)} (market average)
-            </li>
-          ))}
-          {analytics?.marketData.filter((m: any) => m.myPrice > m.avgPrice).length === 0 && (
-            <li>✅ Your prices are competitive! Keep up the good work.</li>
-          )}
-        </ul>
+      {/* Insights */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-2xl">📈</span>
+            <h4 className="font-bold text-gray-900">Growth Tip</h4>
+          </div>
+          <p className="text-sm text-gray-700">
+            {analytics.summary.totalOrders < 10 
+              ? "Add more products to increase visibility"
+              : "Keep your stock updated for better sales"}
+          </p>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-2xl">💰</span>
+            <h4 className="font-bold text-gray-900">Revenue Insight</h4>
+          </div>
+          <p className="text-sm text-gray-700">
+            Your average order value is ₹{analytics.summary.avgOrderValue.toFixed(0)}
+          </p>
+        </div>
+
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-2xl">🎯</span>
+            <h4 className="font-bold text-gray-900">Performance</h4>
+          </div>
+          <p className="text-sm text-gray-700">
+            {analytics.summary.totalOrders} orders in last {period} days
+          </p>
+        </div>
       </div>
     </div>
   );

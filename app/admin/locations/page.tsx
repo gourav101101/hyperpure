@@ -1,7 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import AdminHeader from "../components/AdminHeader";
-import AdminSidebar from "../components/AdminSidebar";
 import ConfirmModal from "../components/ConfirmModal";
 
 export default function LocationsAdmin() {
@@ -24,7 +22,8 @@ export default function LocationsAdmin() {
   const fetchLocations = async () => {
     const res = await fetch('/api/locations');
     const data = await res.json();
-    setLocations(data);
+    const locations = Array.isArray(data) ? data : [];
+    setLocations(locations);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,16 +72,8 @@ export default function LocationsAdmin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-      <div className="flex pt-[73px]">
-        <AdminSidebar />
-        <main className="flex-1 p-8 ml-64">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Locations</h1>
-              <p className="text-sm text-gray-600 mt-0.5">{locations.length} delivery locations</p>
-            </div>
+    <>
+          <div className="flex items-center justify-end mb-6">
             <button onClick={() => setShowModal(true)} className="bg-red-500 text-white px-5 py-2.5 rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center gap-2">
               <span>+</span> Add Location
             </button>
@@ -123,8 +114,6 @@ export default function LocationsAdmin() {
               </div>
             ))}
           </div>
-        </main>
-      </div>
       <ConfirmModal
         isOpen={deleteConfirm.isOpen}
         title="Delete Location"
@@ -134,6 +123,6 @@ export default function LocationsAdmin() {
         onCancel={() => setDeleteConfirm({isOpen: false, locationId: null})}
         type="danger"
       />
-    </div>
+    </>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import AdminHeader from "../components/AdminHeader";
-import AdminSidebar from "../components/AdminSidebar";
+import { toast } from "sonner";
 
 interface Category {
   id?: string;
@@ -25,7 +24,6 @@ export default function CategoriesAdmin() {
   const [editId, setEditId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -34,13 +32,11 @@ export default function CategoriesAdmin() {
   const fetchCategories = async () => {
     const res = await fetch('/api/categories');
     const data = await res.json();
-    setCategories(data);
+    const categories = Array.isArray(data) ? data : [];
+    setCategories(categories);
   };
 
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 3000);
-  };
+
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,7 +94,7 @@ export default function CategoriesAdmin() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: editId, name, icon, subcategories })
         });
-        showNotification('success', 'Category updated successfully!');
+        toast.success('Category updated successfully!');
         setEditId(null);
       } else {
         await fetch('/api/categories', {
@@ -106,7 +102,7 @@ export default function CategoriesAdmin() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, icon, order: categories.length, subcategories })
         });
-        showNotification('success', 'Category added successfully!');
+        toast.success('Category added successfully!');
       }
       setName("");
       setIcon("");
@@ -117,18 +113,18 @@ export default function CategoriesAdmin() {
       setShowModal(false);
       fetchCategories();
     } catch (error) {
-      showNotification('error', 'Failed to save category');
+      toast.error('Failed to save category');
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
-      showNotification('success', 'Category deleted successfully!');
+      toast.success('Category deleted successfully!');
       setDeleteId(null);
       fetchCategories();
     } catch (error) {
-      showNotification('error', 'Failed to delete category');
+      toast.error('Failed to delete category');
     }
   };
 
@@ -153,25 +149,8 @@ export default function CategoriesAdmin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-      <div className="flex pt-[73px]">
-        <AdminSidebar />
-        <main className="flex-1 p-8 ml-64">
-          {/* Notification */}
-          {notification && (
-            <div className={`fixed top-24 right-8 z-50 px-6 py-4 rounded-lg shadow-lg animate-slide-in ${
-              notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-            } text-white font-medium`}>
-              {notification.message}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
-              <p className="text-sm text-gray-600 mt-0.5">{categories.length} categories</p>
-            </div>
+    <>
+          <div className="flex items-center justify-end mb-6">
             <button onClick={openAddModal} className="bg-red-500 text-white px-5 py-2.5 rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center gap-2">
               <span>+</span> Add Category
             </button>
@@ -348,8 +327,6 @@ export default function CategoriesAdmin() {
               </div>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </>
   );
 }

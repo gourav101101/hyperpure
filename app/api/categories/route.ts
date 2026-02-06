@@ -3,9 +3,26 @@ import dbConnect from '@/lib/mongodb';
 import Category from '@/models/Category';
 
 export async function GET() {
-  await dbConnect();
-  const categories = await Category.find({}).sort({ order: 1 });
-  return NextResponse.json(categories);
+  try {
+    console.log('Categories API called');
+    await dbConnect();
+    console.log('Database connected');
+    
+    const categories = await Category.find({}).sort({ order: 1 });
+    console.log('Categories found:', categories.length);
+    
+    return NextResponse.json(categories, {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    });
+  } catch (error) {
+    console.error('Categories API error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch categories', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {

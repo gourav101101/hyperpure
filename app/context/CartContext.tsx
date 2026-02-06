@@ -1,13 +1,17 @@
 "use client";
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { addToCart as addToCartAction, removeFromCart as removeFromCartAction, updateQuantity as updateQuantityAction, clearCart as clearCartAction, setCartAnimation } from '../store/cartSlice';
 
-interface CartItem {
+export interface CartItem {
   _id: string;
   name: string;
   price: number;
   quantity: number;
   image: string;
   unit: string;
+  gstRate?: number;
+  cessRate?: number;
 }
 
 interface CartContextType {
@@ -18,51 +22,41 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   totalAmount: number;
+  cartAnimation: boolean;
+  getCartItem: (id: string) => CartItem | undefined;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>([]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('cart');
-    if (saved) setCart(JSON.parse(saved));
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
-  }, [cart]);
+  const dispatch = useAppDispatch();
+  const cart = useAppSelector((state) => state.cart.items);
+  const cartAnimation = useAppSelector((state) => state.cart.cartAnimation);
 
   const addToCart = (item: CartItem) => {
-    setCart(prev => {
-      const existing = prev.find(i => i._id === item._id);
-      if (existing) {
-        return prev.map(i => i._id === item._id ? { ...i, quantity: i.quantity + item.quantity } : i);
-      }
-      return [...prev, item];
-    });
+    dispatch(addToCartAction(item));
+    setTimeout(() => dispatch(setCartAnimation(false)), 600);
   };
 
   const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(i => i._id !== id));
+    dispatch(removeFromCartAction(id));
   };
 
   const updateQuantity = (id: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(id);
-    } else {
-      setCart(prev => prev.map(i => i._id === id ? { ...i, quantity } : i));
-    }
+    dispatch(updateQuantityAction({ id, quantity }));
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    dispatch(clearCartAction());
+  };
+
+  const getCartItem = (id: string) => cart.find(i => i._id === id);
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, totalItems, totalAmount }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, totalItems, totalAmount, cartAnimation, getCartItem }}>
       {children}
     </CartContext.Provider>
   );

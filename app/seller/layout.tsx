@@ -60,7 +60,7 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   return (
     <div className="min-h-screen bg-gray-50">
       <SellerSidebar />
-      <SellerHeader sellerName={sellerData.seller.name} />
+      <SellerHeader sellerName={sellerData.seller.name} sellerId={sellerData.seller.id} />
       <main className="ml-64 pt-[73px]">
         {children}
       </main>

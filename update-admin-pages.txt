@@ -1,0 +1,2 @@
+// This file lists pages that need layout removal
+// payouts, products, categories, locations, blogs, users, bulk-orders, campaigns

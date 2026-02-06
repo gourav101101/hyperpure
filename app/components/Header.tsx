@@ -3,50 +3,157 @@ import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "../context/CartContext";
 import LogoutModal from "./LogoutModal";
+import LoginModal from "./LoginModal";
+import LiveNotifications from "./LiveNotifications";
+import { useAppSelector, useAppDispatch } from "../store/hooks";
+import { logout } from "../store/authSlice";
+import { clearCart } from "../store/cartSlice";
+import { clearCheckout } from "../store/checkoutSlice";
+import { setSelectedLocation, setAvailableLocations, setShowLocationModal, dismissLocationModal } from "../store/locationSlice";
+import { setShowMenu, setShowLoginModal, setShowLogoutModal, setSearchQuery } from "../store/uiSlice";
 
 interface HeaderProps {
   onLoginClick?: () => void;
   isLoggedIn?: boolean;
 }
 
-export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps = {}) {
+export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: HeaderProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const isCatalogue = !!pathname && pathname.startsWith("/catalogue");
-  const { totalItems } = useCart();
-  const [showMenu, setShowMenu] = React.useState(false);
+  const { totalItems, cartAnimation } = useCart();
+  const { isLoggedIn, userId, userPhone, userName } = useAppSelector((state) => state.auth);
+  const { selectedLocation, availableLocations, showLocationModal, locationModalDismissed } = useAppSelector((state) => state.location);
+  const { showMenu, showLoginModal, showLogoutModal, searchQuery } = useAppSelector((state) => state.ui);
   const [isMounted, setIsMounted] = React.useState(false);
-
-  const [query, setQuery] = React.useState("");
-  const [locations, setLocations] = React.useState<any[]>([]);
-  const [selectedLocation, setSelectedLocation] = React.useState<any>(null);
-  const [showLocationModal, setShowLocationModal] = React.useState(false);
-  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
+  const [locationSearch, setLocationSearch] = React.useState("");
+  const [cartPulse, setCartPulse] = React.useState(false);
+  const didInitCartPulseRef = React.useRef(false);
+  const cartPulseTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const clearClientPreferences = () => {
+    if (typeof window === 'undefined') return;
+    const keys = [
+      'selectedSlotId',
+      'selectedSlot',
+      'needInvoice',
+      'appliedCoupon',
+      'useWallet',
+      'payOnDelivery',
+      'selectedLocation',
+      'locationModalDismissed',
+      'searchQuery',
+      'selectedReceiver',
+      'deliveryAddress',
+      'savedContacts'
+    ];
+    keys.forEach((key) => localStorage.removeItem(key));
+  };
 
   React.useEffect(() => {
     setIsMounted(true);
-    fetchLocations();
-    const saved = localStorage.getItem('selectedLocation');
-    if (saved) {
-      setSelectedLocation(JSON.parse(saved));
+    if (typeof window !== 'undefined') {
+      const storedLocation = localStorage.getItem('selectedLocation');
+      if (storedLocation) {
+        try {
+          const parsed = JSON.parse(storedLocation);
+          if (parsed?._id) {
+            dispatch(setSelectedLocation(parsed));
+          }
+        } catch {}
+      }
+      const storedDismissed = localStorage.getItem('locationModalDismissed');
+      if (storedDismissed === 'true') {
+        dispatch(dismissLocationModal());
+      }
+      const storedSearch = localStorage.getItem('searchQuery');
+      if (storedSearch) {
+        dispatch(setSearchQuery(storedSearch));
+      }
     }
-  }, []);
+    fetchLocations();
+  }, [dispatch]);
+
+  React.useEffect(() => {
+    if (!isMounted) return;
+    if (isLoggedIn && !selectedLocation && !locationModalDismissed && availableLocations.length > 0) {
+      const timeout = setTimeout(() => dispatch(setShowLocationModal(true)), 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [isMounted, isLoggedIn, selectedLocation, locationModalDismissed, availableLocations.length, dispatch]);
+
+  React.useEffect(() => {
+    if (!didInitCartPulseRef.current) {
+      didInitCartPulseRef.current = true;
+      return;
+    }
+    setCartPulse(true);
+    if (cartPulseTimeoutRef.current) {
+      clearTimeout(cartPulseTimeoutRef.current);
+    }
+    cartPulseTimeoutRef.current = setTimeout(() => {
+      setCartPulse(false);
+      cartPulseTimeoutRef.current = null;
+    }, 600);
+    return () => {
+      if (cartPulseTimeoutRef.current) {
+        clearTimeout(cartPulseTimeoutRef.current);
+      }
+    };
+  }, [totalItems]);
+
+  const handleLoginClick = () => {
+    dispatch(setShowLoginModal(true));
+  };
+
+  const actualIsLoggedIn = isLoggedInProp !== undefined ? isLoggedInProp : (isMounted ? isLoggedIn : false);
 
   const fetchLocations = async () => {
-    const res = await fetch('/api/locations');
-    const data = await res.json();
-    setLocations(data);
+    try {
+      const res = await fetch('/api/locations', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        dispatch(setAvailableLocations(Array.isArray(data) ? data : []));
+      } else {
+        console.error('Failed to fetch locations:', res.status);
+        dispatch(setAvailableLocations([]));
+      }
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      dispatch(setAvailableLocations([]));
+    }
   };
 
   const handleLocationSelect = (location: any) => {
-    setSelectedLocation(location);
-    localStorage.setItem('selectedLocation', JSON.stringify(location));
-    setShowLocationModal(false);
+    dispatch(setSelectedLocation(location));
+    dispatch(setShowLocationModal(false));
+    setLocationSearch("");
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedLocation', JSON.stringify(location));
+      localStorage.setItem('locationModalDismissed', 'false');
+    }
   };
+
+  const handleAllLocations = () => {
+    const allLoc = { _id: 'all', name: 'All Locations', city: 'Nationwide', isGlobal: true };
+    dispatch(setSelectedLocation(allLoc));
+    dispatch(setShowLocationModal(false));
+    setLocationSearch("");
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedLocation', JSON.stringify(allLoc));
+      localStorage.setItem('locationModalDismissed', 'false');
+    }
+  };
+
+  const filteredLocations = availableLocations.filter(loc => 
+    loc.name.toLowerCase().includes(locationSearch.toLowerCase()) ||
+    loc.city.toLowerCase().includes(locationSearch.toLowerCase())
+  );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = query.trim();
+    const trimmed = searchQuery.trim();
     router.push(`/catalogue?search=${encodeURIComponent(trimmed)}`);
   };
 
@@ -75,7 +182,7 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
             <div className="text-[10px] md:text-xs text-gray-500 tracking-wide">BY ZOMATO</div>
           </a>
           <div>
-            <button onClick={() => (onLoginClick ? onLoginClick() : router.push('/'))} className="bg-rose-500 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-full hover:bg-rose-600 font-semibold text-sm md:text-base">
+            <button onClick={onLoginClick} className="bg-rose-500 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-full hover:bg-rose-600 font-semibold text-sm md:text-base">
               Login
             </button>
           </div>
@@ -92,7 +199,37 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
             <div className="text-lg md:text-2xl font-bold text-black">hyperpure</div>
             <div className="text-[10px] md:text-xs text-gray-500 tracking-wide">BY ZOMATO</div>
           </a>
-          {isMounted && isLoggedIn && (
+          {isMounted && !actualIsLoggedIn && !isCatalogue && (
+            <div className="relative">
+              <button onClick={() => dispatch(setShowLocationModal(true))} className="text-xs md:text-sm text-gray-600 hover:bg-gray-50 px-2 md:px-3 py-2 rounded-lg transition-colors">
+                <div className="text-[10px] md:text-xs text-gray-500 flex items-center gap-1">
+                  {selectedLocation?.isGlobal ? (
+                    <>
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
+                      </svg>
+                      <span>Nationwide</span>
+                    </>
+                  ) : (
+                    <span>Delivery in</span>
+                  )}
+                </div>
+                <div className="font-semibold text-black text-xs md:text-sm flex items-center gap-1">
+                  {selectedLocation ? selectedLocation.name : 'Select Location'}
+                  <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </button>
+              {!selectedLocation && (
+                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-blue-900 text-white text-xs md:text-sm px-4 py-2 rounded-full shadow-lg whitespace-nowrap z-50">
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-blue-900 rotate-45"></div>
+                  Share your location to see accurate prices
+                </div>
+              )}
+            </div>
+          )}
+          {isMounted && actualIsLoggedIn && (
             <div className="hidden lg:flex items-center gap-3 text-sm border-l border-gray-200 pl-6">
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-teal-500" fill="currentColor" viewBox="0 0 20 20">
@@ -100,7 +237,7 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                 </svg>
                 <span className="font-semibold text-gray-900">Delivery tomorrow</span>
               </div>
-              <button onClick={() => setShowLocationModal(true)} className="text-gray-600 hover:text-gray-900 flex items-center gap-1">
+              <button onClick={() => dispatch(setShowLocationModal(true))} className="text-gray-600 hover:text-gray-900 flex items-center gap-1">
                 <span className="font-medium">Guest Outlet:</span>
                 <span className="text-gray-900">{selectedLocation ? selectedLocation.name : 'Select location'}</span>
               </button>
@@ -108,13 +245,18 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
           )}
         </div>
 
-        {isMounted && isLoggedIn ? (
+        {isMounted && actualIsLoggedIn ? (
           <>
             <div className="flex-1 max-w-2xl hidden md:block">
               <form onSubmit={handleSearchSubmit} className="relative">
                 <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => {
+                    dispatch(setSearchQuery(e.target.value));
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('searchQuery', e.target.value);
+                    }
+                  }}
                   className="w-full bg-gray-50 rounded-lg px-12 py-3 text-sm outline-none focus:ring-2 focus:ring-red-100 border border-gray-200"
                   placeholder="Search 'Coloured capsicum'"
                 />
@@ -128,8 +270,13 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
             <div className="flex-1 md:hidden">
               <form onSubmit={handleSearchSubmit} className="relative">
                 <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => {
+                    dispatch(setSearchQuery(e.target.value));
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('searchQuery', e.target.value);
+                    }
+                  }}
                   className="w-full bg-gray-50 rounded-lg px-10 py-2 text-sm outline-none focus:ring-2 focus:ring-red-100 border border-gray-200"
                   placeholder="Search"
                 />
@@ -139,13 +286,13 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
               </form>
             </div>
             <div className="flex items-center gap-3 md:gap-6">
-              <button onClick={() => router.push('/cart')} className="relative text-gray-700 hover:text-gray-900 hidden md:block">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              <button onClick={() => router.push('/cart')} className="relative text-gray-700 hover:text-gray-900 hidden md:block group">
+                <svg className={`w-7 h-7 transition-transform ${cartPulse ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
                 </svg>
                 {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                    {totalItems}
+                  <span className={`absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-rose-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-lg ${cartPulse ? 'animate-ping' : ''}`}>
+                    <span className="absolute">{totalItems}</span>
                   </span>
                 )}
               </button>
@@ -154,17 +301,17 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
               </button>
-              <button onClick={() => setShowMenu(!showMenu)} className="text-gray-700 hover:text-gray-900 relative">
+              <button onClick={() => dispatch(setShowMenu(!showMenu))} className="text-gray-700 hover:text-gray-900 relative">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
               {showMenu && (
                 <>
-                  <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setShowMenu(false)}></div>
+                  <div className="fixed inset-0 bg-black/30 z-40" onClick={() => dispatch(setShowMenu(false))}></div>
                   <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 overflow-y-auto">
                     <div className="p-6">
-                      <button onClick={() => setShowMenu(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                      <button onClick={() => dispatch(setShowMenu(false))} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">×</button>
                       
                       <div className="flex items-center gap-3 mb-8">
                         <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -183,7 +330,7 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                           <div className="w-1 h-5 bg-red-500 rounded"></div>
                           <h3 className="font-bold text-gray-900">Orders & statements</h3>
                         </div>
-                        <button onClick={() => { router.push('/profile'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { router.push('/buyer/orders'); dispatch(setShowMenu(false)); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -194,7 +341,7 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
-                        <button onClick={() => { router.push('/register-business'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { router.push('/register-business'); dispatch(setShowMenu(false)); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -223,7 +370,7 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                           <div className="w-1 h-5 bg-red-500 rounded"></div>
                           <h3 className="font-bold text-gray-900">Wallet & payment</h3>
                         </div>
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { router.push('/loyalty'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -244,7 +391,7 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                           <div className="w-1 h-5 bg-red-500 rounded"></div>
                           <h3 className="font-bold text-gray-900">Others</h3>
                         </div>
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { router.push('/profile'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -255,7 +402,7 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { router.push('/register-business'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -338,7 +485,7 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                         </button>
                       </div>
 
-                      <button onClick={() => setShowLogoutModal(true)} className="w-full mt-6 px-4 py-3 bg-red-50 text-red-500 rounded-lg font-medium hover:bg-red-100">
+                      <button onClick={() => { dispatch(setShowMenu(false)); dispatch(setShowLogoutModal(true)); }} className="w-full mt-6 px-4 py-3 bg-red-50 text-red-500 rounded-lg font-medium hover:bg-red-100">
                         Logout
                       </button>
                     </div>
@@ -358,8 +505,13 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
                 </button>
                 <input
                   aria-label="Search catalogue"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => {
+                    dispatch(setSearchQuery(e.target.value));
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('searchQuery', e.target.value);
+                    }
+                  }}
                   className="flex-1 bg-transparent outline-none px-1 text-sm"
                   placeholder="Search for products, brands or categories"
                 />
@@ -387,18 +539,10 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
           </div>
         )}
 
-        {isMounted && !isLoggedIn && (
+        {isMounted && !actualIsLoggedIn && (
           <div className="flex items-center gap-2 md:gap-4">
-            {!isCatalogue && (
-              <button 
-                onClick={() => setShowLocationModal(true)}
-                className="hidden sm:block text-xs md:text-sm text-gray-600 hover:bg-gray-50 px-2 md:px-3 py-2 rounded-lg transition-colors">
-                <div className="text-[10px] md:text-xs text-gray-500">Delivery in</div>
-                <div className="font-semibold text-black text-xs md:text-sm">{selectedLocation ? selectedLocation.name : 'Select Location'} <span className="text-gray-400">▾</span></div>
-              </button>
-            )}
             <button
-              onClick={onLoginClick}
+              onClick={handleLoginClick}
               className="bg-rose-500 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-full hover:bg-rose-600 font-semibold shadow-sm text-sm md:text-base"
             >
               Login/Signup
@@ -408,33 +552,138 @@ export default function Header({ onLoginClick, isLoggedIn = false }: HeaderProps
       </nav>
 
       {showLocationModal && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowLocationModal(false)}>
-          <div className="bg-white rounded-xl p-4 md:p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg md:text-xl font-bold mb-4">Select Delivery Location</h2>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {locations.map((loc) => (
-                <button
-                  key={loc._id}
-                  onClick={() => handleLocationSelect(loc)}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                    selectedLocation?._id === loc._id ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-red-300'
-                  }`}
-                >
-                  <div className="font-semibold">{loc.name}</div>
-                  <div className="text-sm text-gray-600">{loc.city}, {loc.state} - {loc.pincode}</div>
-                </button>
-              ))}
+        <div className="fixed inset-0 bg-gradient-to-br from-black/50 via-black/40 to-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={() => {
+          dispatch(dismissLocationModal());
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('locationModalDismissed', 'true');
+          }
+        }}>
+          <div className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl animate-slideUp relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => {
+              dispatch(dismissLocationModal());
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('locationModalDismissed', 'true');
+              }
+            }} className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            <div className="flex justify-center mb-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-red-50 to-orange-50 rounded-full flex items-center justify-center">
+                <div className="relative">
+                  <div className="text-5xl">🏪</div>
+                  <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            <h2 className="text-2xl md:text-3xl font-bold text-center mb-2 text-gray-900">Select your location</h2>
+            <p className="text-center text-gray-500 mb-6">for accurate prices & availability</p>
+            
+            <button
+              onClick={handleAllLocations}
+              className="w-full mb-4 p-4 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold text-gray-900 group-hover:text-blue-600">All Locations</div>
+                    <div className="text-sm text-gray-500">Browse products from everywhere</div>
+                  </div>
+                </div>
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+            
+            <div className="relative mb-4">
+              <input
+                type="text"
+                value={locationSearch}
+                onChange={(e) => setLocationSearch(e.target.value)}
+                placeholder="Search city name"
+                className="w-full px-4 py-3 pl-12 border-2 border-gray-200 rounded-xl outline-none focus:border-red-400 transition-colors"
+              />
+              <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto mb-4 custom-scrollbar">
+              {filteredLocations.length > 0 ? (
+                filteredLocations.map((loc) => (
+                  <button
+                    key={loc._id}
+                    onClick={() => handleLocationSelect(loc)}
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all group hover:border-red-400 hover:bg-red-50 ${
+                      selectedLocation?._id === loc._id ? 'border-red-500 bg-red-50' : 'border-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-bold text-gray-900 group-hover:text-red-600">{loc.name}</div>
+                        <div className="text-sm text-gray-500">{loc.city}, {loc.state} - {loc.pincode}</div>
+                      </div>
+                      <svg className="w-5 h-5 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <svg className="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <p>No locations found</p>
+                </div>
+              )}
+            </div>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500 font-medium">OR</span>
+              </div>
+            </div>
+
+            <button className="w-full py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl font-semibold hover:from-red-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+              Use current location
+            </button>
           </div>
         </div>
       )}
-      <LogoutModal open={showLogoutModal} onClose={() => setShowLogoutModal(false)} onLogout={() => {
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('userPhone');
+      <LogoutModal open={showLogoutModal} onClose={() => dispatch(setShowLogoutModal(false))} onLogout={() => {
+        dispatch(logout());
+        clearClientPreferences();
         window.location.href = '/';
       }} onLogoutAll={async () => {
-        localStorage.clear();
+        dispatch(logout());
+        dispatch(clearCart());
+        dispatch(clearCheckout());
+        clearClientPreferences();
         window.location.href = '/';
+      }} />
+      <LoginModal open={showLoginModal} onClose={() => dispatch(setShowLoginModal(false))} onSuccess={() => {
+        dispatch(setShowLoginModal(false));
+        window.location.reload();
       }} />
     </header>
   );

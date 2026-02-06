@@ -13,6 +13,7 @@ export default function RegisterSeller() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [devOtp, setDevOtp] = useState("");
   const [heroImgError, setHeroImgError] = useState(false);
   const [toast, setToast] = useState<{message: string; type: 'success'|'error'} | null>(null);
   const [formData, setFormData] = useState({
@@ -60,7 +61,8 @@ export default function RegisterSeller() {
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    const duration = message.length > 50 ? 7000 : type === 'error' ? 5000 : 3000;
+    setTimeout(() => setToast(null), duration);
   };
 
   const sendOTP = async () => {
@@ -78,6 +80,7 @@ export default function RegisterSeller() {
       const data = await res.json();
       if (data.success) {
         setTimer(30);
+        setDevOtp(data.otp || ""); // Store OTP for development
         const countdown = setInterval(() => {
           setTimer(prev => {
             if (prev <= 1) {
@@ -88,6 +91,10 @@ export default function RegisterSeller() {
           });
         }, 1000);
         showToast('OTP sent to your mobile number', 'success');
+      } else if (data.needsRegistration) {
+        setShowLogin(false);
+        showToast('Please complete seller registration first', 'error');
+        setTimeout(() => setShowRegister(true), 1000);
       } else {
         showToast(data.error || 'Failed to send OTP', 'error');
       }
@@ -111,7 +118,9 @@ export default function RegisterSeller() {
         body: JSON.stringify({ phoneNumber, otp: otpCode, role: 'seller' })
       });
       const data = await res.json();
-      if (data.success) {
+      console.log('Verify OTP response:', res.status, data);
+      
+      if (res.ok && data.success) {
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userPhone', phoneNumber);
         localStorage.setItem('userRole', 'seller');
@@ -120,9 +129,10 @@ export default function RegisterSeller() {
         showToast('Login successful! Redirecting...', 'success');
         setTimeout(() => router.push('/seller/dashboard'), 1000);
       } else {
-        showToast(data.error || 'Invalid OTP. Please try again.', 'error');
+        showToast(data.error || 'Verification failed. Please try again.', 'error');
       }
     } catch (e) {
+      console.error('Verification error:', e);
       showToast('Verification failed. Please check your connection.', 'error');
     }
     setLoading(false);
@@ -181,10 +191,10 @@ export default function RegisterSeller() {
               </div>
             </div>
 
-            <div className="hidden md:block w-96 h-56">
+                <div className="hidden md:block w-96 h-56">
               {!heroImgError ? (
                 <img
-                  src="/images/seller-hero.png"
+                  src="/images/seller-hero.svg"
                   alt="seller-hero"
                   className="w-full h-full object-cover rounded-2xl"
                   onError={(e) => { setHeroImgError(true); }}
@@ -233,7 +243,7 @@ export default function RegisterSeller() {
             <div className="flex items-center justify-center gap-10 mb-12 overflow-x-auto">
               {/* Example partner logos - replace src with real logos as needed */}
               {[
-                '/logos/mccain.png','/logos/goldencrown.png','/logos/itc.png','/logos/veeba.png','/logos/everest.png','/logos/amul.png','/logos/monin.png','/logos/barilla.png','/logos/leekumkee.png'
+                '/logos/mccain.svg','/logos/goldencrown.svg','/logos/itc.svg','/logos/veeba.svg','/logos/everest.svg','/logos/amul.svg','/logos/monin.svg','/logos/barilla.svg','/logos/leekumkee.svg'
               ].map((src, i) => (
                 <div key={i} className="w-36 h-12 flex items-center justify-center opacity-90">
                   <img
@@ -468,14 +478,30 @@ export default function RegisterSeller() {
                     {loading ? 'Sending...' : timer > 0 ? `Resend in ${timer}s` : 'Send OTP'}
                   </button>
                   <button 
-                    onClick={() => { setOtp(["", "", "", "", "", ""]); setPhoneNumber(''); setTimer(0); }} 
+                    onClick={() => { setOtp(["", "", "", "", "", ""]); setPhoneNumber(''); setTimer(0); setDevOtp(''); }} 
                     className="py-3 px-4 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     Clear
                   </button>
                 </div>
 
-                <div className="mb-4">
+                {devOtp && (
+                  <div className="w-full mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+                    <span className="text-sm text-yellow-800">OTP: <strong className="text-lg">{devOtp}</strong></span>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(devOtp);
+                        const newOtp = devOtp.split('');
+                        setOtp(newOtp);
+                      }}
+                      className="text-xs bg-yellow-200 hover:bg-yellow-300 px-3 py-1.5 rounded font-medium"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                )}
+
+                <div className="w-full mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Enter 6-digit OTP</label>
                   <div className="flex gap-2 justify-center">
                     {otp.map((digit, idx) => (
@@ -530,7 +556,8 @@ export default function RegisterSeller() {
                 </div>
                 
                 <div className="mt-4 text-center">
-                  <p className="text-xs text-gray-500">Only registered sellers can access this portal</p>
+                  <p className="text-xs text-gray-500 mb-2">Only registered sellers can access this portal</p>
+                  <p className="text-xs text-gray-400">New seller? <button onClick={() => {setShowLogin(false); setShowRegister(true);}} className="text-red-500 hover:text-red-600 underline">Register here</button></p>
                 </div>
               </div>
             </div>

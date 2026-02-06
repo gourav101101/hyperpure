@@ -1,7 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import AdminHeader from "../components/AdminHeader";
-import AdminSidebar from "../components/AdminSidebar";
 import ConfirmModal from "../components/ConfirmModal";
 
 interface ContentBlock {
@@ -140,16 +138,8 @@ export default function BlogManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-      <div className="flex pt-[73px]">
-        <AdminSidebar />
-        <main className="flex-1 p-8 ml-64">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Blogs</h1>
-              <p className="text-sm text-gray-600 mt-0.5">{blogs.length} blog posts</p>
-            </div>
+    <>
+          <div className="flex items-center justify-end mb-6">
             <button
               onClick={handleCreate}
               className="bg-red-500 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-red-600 flex items-center gap-2"
@@ -354,8 +344,7 @@ export default function BlogManagement() {
               ))}
             </div>
           )}
-        </main>
-      </div>
+
       <ConfirmModal
         isOpen={deleteConfirm.isOpen}
         title="Delete Blog"
@@ -365,6 +354,6 @@ export default function BlogManagement() {
         onCancel={() => setDeleteConfirm({isOpen: false, blogId: null})}
         type="danger"
       />
-    </div>
+    </>
   );
 }

@@ -10,7 +10,33 @@ const ProductSchema = new mongoose.Schema({
   description: String,
   keyFeatures: [String],
   servingInstructions: [String],
-  sku: { type: String, unique: true, sparse: true }
+  sku: { type: String, unique: true, sparse: true },
+  
+  // Tax Information
+  gstRate: { type: Number, default: 0 },
+  cessRate: { type: Number, default: 0 },
+  hsnCode: { type: String },
+  
+  // Storage & Safety
+  shelfLife: String,
+  storageInstructions: String,
+  
+  // Nutritional Info
+  nutritionalInfo: {
+    servingSize: String,
+    calories: Number,
+    protein: String,
+    carbs: String,
+    fat: String,
+    fiber: String,
+    sodium: String
+  },
+  
+  // Additional Info
+  brand: String,
+  manufacturer: String,
+  countryOfOrigin: String,
+  ingredients: [String]
 }, { timestamps: true });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

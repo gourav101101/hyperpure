@@ -1,15 +1,13 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import NotificationSystem from "../components/NotificationSystem";
-import { useNotifications } from "../hooks/useNotifications";
+import { toast } from "sonner";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-  const { notifications, removeNotification, showError } = useNotifications();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,14 +15,12 @@ export default function AdminLogin() {
       localStorage.setItem('adminAuth', 'true');
       router.push("/admin/dashboard");
     } else {
-      showError("Invalid credentials! Use: admin@hyperpure.com / admin123");
+      toast.error("Invalid credentials! Use: admin@hyperpure.com / admin123");
     }
   };
 
   return (
-    <>
-      <NotificationSystem notifications={notifications} onRemove={removeNotification} />
-      <div className="min-h-screen bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center px-6">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-red-500 rounded-xl flex items-center justify-center mx-auto mb-4">
@@ -89,6 +85,5 @@ export default function AdminLogin() {
         </form>
       </div>
     </div>
-    </>
   );
 }

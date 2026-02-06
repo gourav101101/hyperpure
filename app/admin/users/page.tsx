@@ -1,7 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import AdminHeader from "../components/AdminHeader";
-import AdminSidebar from "../components/AdminSidebar";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<any[]>([]);
@@ -14,22 +12,14 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     const res = await fetch('/api/admin/users');
     const data = await res.json();
-    setUsers(data);
+    const users = Array.isArray(data) ? data : [];
+    setUsers(users);
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-      <div className="flex pt-[73px]">
-        <AdminSidebar />
-        <main className="flex-1 p-8 ml-64">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-              <p className="text-sm text-gray-600 mt-0.5">{users.length} total users</p>
-            </div>
-          </div>
+    <>
+
           
           {loading ? (
             <div className="text-center py-12">Loading...</div>
@@ -64,8 +54,6 @@ export default function AdminUsers() {
               )}
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </>
   );
 }

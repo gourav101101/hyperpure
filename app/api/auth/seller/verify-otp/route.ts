@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
 
     sellerOtpStore.delete(phoneNumber);
     
-    // Check if seller exists in database
     let seller = await Seller.findOne({ phone: phoneNumber });
     if (!seller) {
       return NextResponse.json({ 
@@ -36,18 +35,17 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
     
-    // Check if seller is approved
     if (seller.status !== 'approved') {
       const statusMessages = {
         pending: 'Your seller account is pending approval. Please wait for admin verification.',
-        rejected: `Your seller account was rejected. Reason: ${seller.rejectionReason || 'Contact support for details.'}`
+        rejected: `Your seller account has been suspended/rejected. ${seller.rejectionReason ? 'Reason: ' + seller.rejectionReason : 'Contact support for details.'}`,
+        suspended: 'Your seller account has been suspended. Please contact support for assistance.'
       };
       return NextResponse.json({ 
-        error: statusMessages[seller.status as keyof typeof statusMessages] 
+        error: statusMessages[seller.status as keyof typeof statusMessages] || 'Account access denied. Contact support.'
       }, { status: 403 });
     }
     
-    // Update last login
     seller.lastLogin = new Date();
     await seller.save();
     

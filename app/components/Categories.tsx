@@ -13,9 +13,19 @@ export default function Categories() {
 
   useEffect(() => {
     const fetchCategories = async () => {
-      const res = await fetch('/api/categories');
-      const data = await res.json();
-      setCategories(data);
+      try {
+        const res = await fetch('/api/categories', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          setCategories(Array.isArray(data) ? data : []);
+        } else {
+          console.error('Failed to fetch categories:', res.status);
+          setCategories([]);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setCategories([]);
+      }
     };
     fetchCategories();
   }, []);
@@ -29,7 +39,7 @@ export default function Categories() {
           <div className="h-px bg-gradient-to-l from-transparent via-red-400 to-red-500 flex-1 max-w-xs"></div>
         </div>
         <div className="flex flex-wrap gap-6 justify-center">
-          {categories.map((cat: any) => (
+          {Array.isArray(categories) && categories.map((cat: any) => (
             <Link key={cat._id || cat.id} href={`/catalogue?category=${encodeURIComponent(cat.name)}`} className="bg-white rounded-2xl p-6 hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer group w-[calc((100%-6*1.5rem)/7)] min-w-[140px]">
               <div className="mb-4 group-hover:scale-110 transition-transform flex items-center justify-center h-16">
                 {cat.icon && (cat.icon.includes('http') || cat.icon.includes('cloudinary')) ? (

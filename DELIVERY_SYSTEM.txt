@@ -1,0 +1,8 @@
+Standard Delivery (FREE) - Evening slot 12-5 PM
+Express Delivery (₹100) - Custom time slots with extra charge
+
+Admin can create multiple slots:
+- 1 Standard slot (deliveryCharge: 0, isExpress: false) 
+- Multiple Express slots (deliveryCharge: 100-500, isExpress: true)
+
+User sees both options and chooses.

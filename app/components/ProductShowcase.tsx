@@ -24,24 +24,34 @@ export default function ProductShowcase({ showAll = false }: ProductShowcaseProp
 
   useEffect(() => {
     const fetchData = async () => {
-      const [cats, products] = await Promise.all([
-        fetch('/api/categories').then(r => r.json()),
-        fetch('/api/products').then(r => r.json())
-      ]);
-      setCategories(cats);
-
-      const grouped = cats.slice(0, showAll ? cats.length : 3).map((cat: any) => ({
-        id: cat._id || cat.id || cat.name,
-        icon: cat.icon,
-        title: cat.name,
-        subtitle: "handpicked quality",
-        products: products.filter((p: any) => p.category === cat.name).slice(0, 4)
-      }));
-
-      setProductsByCategory(grouped);
+      try {
+        const [catsRes, productsRes] = await Promise.all([
+          fetch('/api/categories', { cache: 'no-store' }),
+          fetch('/api/products', { cache: 'no-store' })
+        ]);
+        
+        const cats = catsRes.ok ? await catsRes.json() : [];
+        const products = productsRes.ok ? await productsRes.json() : [];
+        
+        setCategories(Array.isArray(cats) ? cats : []);
+        
+        const grouped = cats.slice(0, showAll ? cats.length : 3).map((cat: any) => ({
+          id: cat._id,
+          icon: cat.icon,
+          title: cat.name,
+          subtitle: "handpicked quality",
+          products: products.filter((p: any) => p.category === cat.name).slice(0, 4)
+        }));
+        
+        setProductsByCategory(grouped);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setCategories([]);
+        setProductsByCategory([]);
+      }
     };
     fetchData();
-  }, []);
+  }, [showAll]);
 
   return (
     <section className="py-16 px-6 bg-white">

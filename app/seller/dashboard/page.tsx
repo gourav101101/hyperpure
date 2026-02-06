@@ -2,30 +2,48 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import SellerPerformanceDashboard from "../components/SellerPerformanceDashboard";
 
 export default function SellerDashboard() {
   const router = useRouter();
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [commission, setCommission] = useState<any>(null);
   const [stats, setStats] = useState({ totalProducts: 0, activeProducts: 0, lowStock: 0, totalRevenue: 0, totalOrders: 0 });
+  const [sellerId, setSellerId] = useState<string>('');
 
   useEffect(() => {
-    const sellerId = localStorage.getItem('sellerId');
-    if (sellerId) {
-      fetchDashboardData(sellerId);
-      fetchProducts(sellerId);
+    const id = localStorage.getItem('sellerId') || 'dev-seller';
+    setSellerId(id);
+    console.log('Using sellerId:', id);
+    if (id) {
+      fetchDashboardData(id);
+      fetchProducts(id);
+      fetchCommission();
     }
   }, []);
+
+  const fetchCommission = async () => {
+    const res = await fetch('/api/admin/commission');
+    if (res.ok) {
+      const data = await res.json();
+      setCommission(data);
+    }
+  };
 
   const fetchDashboardData = async (sellerId: string) => {
     try {
       const res = await fetch(`/api/seller/dashboard?sellerId=${sellerId}`);
+      if (!res.ok) {
+        console.error('Dashboard API error:', res.status, res.statusText);
+        return;
+      }
       const data = await res.json();
       if (data.seller) {
         setDashboardData(data);
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard data');
+      console.error('Failed to fetch dashboard data:', error);
     }
   };
 
@@ -53,10 +71,55 @@ export default function SellerDashboard() {
     }
   };
 
-  if (!dashboardData) return <div className="p-8">Loading...</div>;
+  if (!dashboardData) return <div className="p-8">Error loading data</div>;
 
   return (
     <div className="p-8">
+          {/* Commission Info Banner */}
+          {commission && dashboardData?.performance && (
+            <div className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">💰 Your Commission Rate</h3>
+                  <p className="text-3xl font-bold text-green-600">
+                    {commission.useTierCommission ? (
+                      <>
+                        {dashboardData.performance.tier === 'premium' && '5%'}
+                        {dashboardData.performance.tier === 'standard' && '10%'}
+                        {dashboardData.performance.tier === 'new' && '15%'}
+                        <span className="text-sm ml-2 text-gray-600">({dashboardData.performance.tier} tier)</span>
+                      </>
+                    ) : (
+                      `${commission.commissionRate}%`
+                    )}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Platform fee added to customer price - You receive your full amount!
+                  </p>
+                </div>
+                {commission.useTierCommission && (
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600 mb-2">Upgrade to lower fee:</p>
+                    {dashboardData.performance.tier === 'new' && (
+                      <p className="text-xs text-gray-700">
+                        <span className="font-bold">Standard (10%):</span> Complete 50 orders & ₹50K revenue<br/>
+                        <span className="font-bold">Premium (5%):</span> Complete 200 orders & ₹200K revenue
+                      </p>
+                    )}
+                    {dashboardData.performance.tier === 'standard' && (
+                      <p className="text-xs text-gray-700">
+                        <span className="font-bold">Premium (5%):</span> Complete 200 orders & ₹200K revenue
+                      </p>
+                    )}
+                    {dashboardData.performance.tier === 'premium' && (
+                      <p className="text-xs text-green-700 font-bold">🎉 You have the lowest platform fee!</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Status Banner */}
           <div className={`mb-6 p-4 rounded-xl ${
             dashboardData.seller.status === 'approved' ? 'bg-green-50 border border-green-200' :
@@ -85,8 +148,11 @@ export default function SellerDashboard() {
 
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Overview</h2>
           
+          {/* Performance Dashboard */}
+          {sellerId && <SellerPerformanceDashboard sellerId={sellerId} />}
+          
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 my-8">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 shadow-lg text-white">
               <div className="text-3xl mb-2">📦</div>
               <p className="text-3xl font-bold">{stats.totalProducts}</p>
@@ -109,6 +175,9 @@ export default function SellerDashboard() {
               <div className="text-3xl mb-2">💰</div>
               <p className="text-3xl font-bold">₹{stats.totalRevenue.toFixed(0)}</p>
               <p className="text-sm opacity-90 mt-1">Inventory Value</p>
+              {commission && (
+                <p className="text-xs opacity-75 mt-2">Commission: {commission.useTierCommission ? (dashboardData?.performance?.tier === 'premium' ? '5%' : dashboardData?.performance?.tier === 'standard' ? '10%' : '15%') : `${commission.commissionRate}%`}</p>
+              )}
             </div>
 
             <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-6 shadow-lg text-white">

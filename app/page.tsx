@@ -21,17 +21,33 @@ export default function Home() {
   const [timer, setTimer] = useState(30);
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [devOtp, setDevOtp] = useState("");
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true');
+      const loginStatus = localStorage.getItem('isLoggedIn') === 'true';
+      setIsLoggedIn(loginStatus);
+      console.log('Login status:', loginStatus);
     }
   }, []);
   
   
   const [categories, setCategories] = useState<any[]>([]);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Fallback categories in case API fails
+  const fallbackCategories = [
+    { _id: '1', name: 'Vegetables', icon: '🥬', order: 1 },
+    { _id: '2', name: 'Fruits', icon: '🍎', order: 2 },
+    { _id: '3', name: 'Dairy', icon: '🥛', order: 3 },
+    { _id: '4', name: 'Meat', icon: '🥩', order: 4 },
+    { _id: '5', name: 'Spices', icon: '🌶️', order: 5 },
+    { _id: '6', name: 'Grains', icon: '🌾', order: 6 },
+    { _id: '7', name: 'Beverages', icon: '🥤', order: 7 }
+  ];
 
   const slides = [
     {
@@ -56,8 +72,10 @@ export default function Home() {
 
   useEffect(() => {
     setIsLoading(false);
-    fetchCategories();
-  }, []);
+    if (isLoggedIn) {
+      fetchCategories();
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -67,9 +85,29 @@ export default function Home() {
   }, []);
 
   const fetchCategories = async () => {
-    const res = await fetch('/api/categories');
-    const data = await res.json();
-    setCategories(data);
+    setCategoriesLoading(true);
+    try {
+      setCategoriesError(null);
+      const res = await fetch('/api/categories', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store'
+      });
+      
+      if (!res.ok) {
+        setCategoriesError(`API Error: ${res.status}`);
+        setCategories(fallbackCategories);
+        return;
+      }
+      
+      const data = await res.json();
+      setCategories(Array.isArray(data) && data.length > 0 ? data : fallbackCategories);
+    } catch (error) {
+      setCategoriesError('Network error');
+      setCategories(fallbackCategories);
+    } finally {
+      setCategoriesLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -92,6 +130,7 @@ export default function Home() {
       if (data.success) {
         setShowOtpScreen(true);
         setTimer(30);
+        setDevOtp(data.otp || ""); // Store OTP for development
       }
     } catch (error) {
       alert('Failed to send OTP');
@@ -182,66 +221,80 @@ export default function Home() {
             {/* Shop by category */}
             <div>
               <h2 className="text-2xl md:text-4xl font-bold mb-6 md:mb-10 text-gray-900">Shop by category</h2>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 md:gap-6">
-                {categories.map((cat) => (
-                  <a
-                    key={cat._id}
-                    href={`/catalogue?category=${encodeURIComponent(cat.name)}`}
-                    className="bg-gray-50 rounded-2xl md:rounded-3xl pt-0 px-2 md:px-4 pb-3 md:pb-4 transition-all text-center group border border-gray-100 cursor-pointer"
-                  >
-                    <div className="mb-2 md:mb-4 flex justify-center group-hover:scale-110 transition-transform">
-                      {cat.icon && (cat.icon.includes('http') || cat.icon.includes('cloudinary')) ? (
-                        <img src={cat.icon} alt={cat.name} className="w-16 h-16 md:w-24 md:h-24 object-cover rounded-xl md:rounded-2xl" />
-                      ) : (
-                        <div className="text-4xl md:text-6xl">{cat.icon}</div>
-                      )}
+              
+              {categoriesLoading ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 md:gap-6">
+                  {[...Array(14)].map((_, i) => (
+                    <div key={i} className="bg-gray-100 rounded-2xl md:rounded-3xl p-2 md:p-4 animate-pulse">
+                      <div className="w-16 h-16 md:w-24 md:h-24 bg-gray-200 rounded-xl md:rounded-2xl mx-auto mb-2 md:mb-4"></div>
+                      <div className="h-3 md:h-4 bg-gray-200 rounded mx-auto w-3/4"></div>
                     </div>
-                    <h3 className="text-xs md:text-base font-bold text-gray-900 leading-tight line-clamp-2">{cat.name}</h3>
-                  </a>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {categoriesError && (
+                    <div className="mb-4 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                      <p className="text-xs text-orange-700">⚠️ {categoriesError} - showing backup categories</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 md:gap-6">
+                    {categories.map((cat) => (
+                      <a
+                        key={cat._id}
+                        href={`/catalogue?category=${encodeURIComponent(cat.name)}`}
+                        className="bg-gray-50 rounded-2xl md:rounded-3xl pt-0 px-2 md:px-4 pb-3 md:pb-4 transition-all text-center group border border-gray-100 hover:shadow-md hover:scale-105 cursor-pointer"
+                      >
+                        <div className="mb-2 md:mb-4 flex justify-center group-hover:scale-110 transition-transform">
+                          {cat.icon && (cat.icon.includes('http') || cat.icon.includes('cloudinary')) ? (
+                            <img src={cat.icon} alt={cat.name} className="w-16 h-16 md:w-24 md:h-24 object-cover rounded-xl md:rounded-2xl" />
+                          ) : (
+                            <div className="text-4xl md:text-6xl">{cat.icon}</div>
+                          )}
+                        </div>
+                        <h3 className="text-xs md:text-base font-bold text-gray-900 leading-tight line-clamp-2">{cat.name}</h3>
+                      </a>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Trusted brands */}
             <div className="mt-8 md:mt-16">
               <h2 className="text-2xl md:text-4xl font-bold mb-6 md:mb-10 text-gray-900">Trusted brands</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-6">
-                <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center">
-                  <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-3 mb-2 md:mb-3 w-16 h-16 md:w-22 md:h-22 flex items-center justify-center">
-                    <img src="https://upload.wikimedia.org/wikipedia/en/thumb/5/59/Wingreens_Farms_logo.png/220px-Wingreens_Farms_logo.png" alt="Wingreens" className="w-full h-full object-contain" />
+                {[1,2,3,4,5,6].map((i) => (
+                  <div key={i} className={`bg-gradient-to-br ${[
+                    'from-green-400 to-green-600',
+                    'from-yellow-200 to-yellow-400', 
+                    'from-blue-500 to-blue-700',
+                    'from-orange-400 to-orange-600',
+                    'from-red-500 to-red-700',
+                    'from-cyan-400 to-cyan-600'
+                  ][i-1]} rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center hover:scale-105 transition-transform cursor-pointer group`}>
+                    <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-3 mb-2 md:mb-3 w-16 h-16 md:w-22 md:h-22 flex items-center justify-center group-hover:rotate-3 transition-transform">
+                      <span className={`text-xs md:text-xl font-bold ${[
+                        'text-green-600',
+                        'text-orange-600',
+                        'text-blue-600', 
+                        'text-red-700',
+                        'text-gray-800',
+                        'text-blue-600'
+                      ][i-1]}`}>
+                        {['WINGREENS', 'MARIM BULA', 'kissan', 'EVEREST', 'dhampure', 'Amul'][i-1]}
+                      </span>
+                    </div>
+                    <img src={[
+                      'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=300',
+                      'https://images.unsplash.com/photo-1596040033229-a0b3b7e8c5e0?w=300',
+                      'https://images.unsplash.com/photo-1546548970-71785318a17b?w=300',
+                      'https://images.unsplash.com/photo-1599909533730-f9d7e5d4d3b5?w=300',
+                      'https://images.unsplash.com/photo-1587241321921-91a834d82ffc?w=300',
+                      'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=300'
+                    ][i-1]} alt="Products" className="w-full h-16 md:h-28 object-contain group-hover:scale-110 transition-transform" />
                   </div>
-                  <img src="https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=300" alt="Products" className="w-full h-16 md:h-28 object-contain" />
-                </div>
-                <div className="bg-gradient-to-br from-yellow-200 to-yellow-400 rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center">
-                  <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-3 mb-2 md:mb-3 w-16 h-16 md:w-22 md:h-22 flex items-center justify-center">
-                    <span className="text-xs md:text-xl font-bold text-orange-600">MARIM BULA</span>
-                  </div>
-                  <img src="https://images.unsplash.com/photo-1596040033229-a0b3b7e8c5e0?w=300" alt="Products" className="w-full h-16 md:h-28 object-contain" />
-                </div>
-                <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center">
-                  <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-3 mb-2 md:mb-3 w-16 h-16 md:w-22 md:h-22 flex items-center justify-center">
-                    <span className="text-xs md:text-xl font-bold text-red-600">kissan</span>
-                  </div>
-                  <img src="https://images.unsplash.com/photo-1546548970-71785318a17b?w=300" alt="Products" className="w-full h-16 md:h-28 object-contain" />
-                </div>
-                <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center">
-                  <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-3 mb-2 md:mb-3 w-16 h-16 md:w-22 md:h-22 flex items-center justify-center">
-                    <span className="text-xs md:text-xl font-bold text-red-700">EVEREST</span>
-                  </div>
-                  <img src="https://images.unsplash.com/photo-1599909533730-f9d7e5d4d3b5?w=300" alt="Products" className="w-full h-16 md:h-28 object-contain" />
-                </div>
-                <div className="bg-gradient-to-br from-red-500 to-red-700 rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center">
-                  <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-3 mb-2 md:mb-3 w-16 h-16 md:w-22 md:h-22 flex items-center justify-center">
-                    <span className="text-xs md:text-xl font-bold">dhampure</span>
-                  </div>
-                  <img src="https://images.unsplash.com/photo-1587241321921-91a834d82ffc?w=300" alt="Products" className="w-full h-16 md:h-28 object-contain" />
-                </div>
-                <div className="bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center">
-                  <div className="bg-white rounded-xl md:rounded-2xl p-2 md:p-3 mb-2 md:mb-3 w-16 h-16 md:w-22 md:h-22 flex items-center justify-center">
-                    <span className="text-xs md:text-xl font-bold text-blue-600">Amul</span>
-                  </div>
-                  <img src="https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=300" alt="Products" className="w-full h-16 md:h-28 object-contain" />
-                </div>
+                ))}
               </div>
             </div>
 
@@ -309,6 +362,17 @@ export default function Home() {
             </div>
             <h2 className="text-3xl font-bold text-center mb-2">Enter verification code</h2>
             <p className="text-gray-500 text-center mb-6">6 digit OTP has been sent to +91 {phoneNumber}</p>
+            {devOtp && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+                <span className="text-sm text-yellow-800">Dev OTP: <strong>{devOtp}</strong></span>
+                <button 
+                  onClick={() => navigator.clipboard.writeText(devOtp)}
+                  className="text-xs bg-yellow-200 hover:bg-yellow-300 px-2 py-1 rounded"
+                >
+                  Copy
+                </button>
+              </div>
+            )}
             <div className="flex gap-3 justify-center mb-6">
               {otp.map((digit, index) => (
                 <input 

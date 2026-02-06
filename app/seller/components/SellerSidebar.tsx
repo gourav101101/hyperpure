@@ -15,9 +15,21 @@ export default function SellerSidebar() {
     { id: "overview", icon: "📊", label: "Overview", path: "/seller/dashboard" },
     { id: "products", icon: "📦", label: "Products", path: "/seller/products" },
     { id: "orders", icon: "📋", label: "Orders", path: "/seller/orders" },
+    { id: "collection", icon: "🚚", label: "Collection Schedule", path: "/seller/collection-schedule" },
     { id: "analytics", icon: "📈", label: "Analytics", path: "/seller/analytics" },
+    { id: "pricing", icon: "💰", label: "Pricing", path: "/seller/pricing" },
+    { id: "forecast", icon: "🔮", label: "Forecast", path: "/seller/forecast" },
+    { id: "payouts", icon: "💳", label: "Payouts", path: "/seller/payouts" },
     { id: "settings", icon: "⚙️", label: "Settings", path: "/seller/settings" }
   ];
+
+  const isActive = (path: string) => {
+    if (!pathname) return false;
+    if (path === "/seller/dashboard") {
+      return pathname === "/seller" || pathname.startsWith("/seller/dashboard");
+    }
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
 
   return (
     <aside className="bg-white border-r fixed left-0 top-0 bottom-0 w-64 z-50">
@@ -38,7 +50,7 @@ export default function SellerSidebar() {
               key={item.id}
               href={item.path}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                pathname === item.path
+                isActive(item.path)
                   ? "bg-red-50 text-red-600 font-medium"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
@@ -62,3 +74,6 @@ export default function SellerSidebar() {
     </aside>
   );
 }
+
+
+

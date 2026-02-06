@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import AdminHeader from "../components/AdminHeader";
-import AdminSidebar from "../components/AdminSidebar";
 import ConfirmModal from "../components/ConfirmModal";
+import { toast } from "sonner";
 
 interface Product {
   id?: string;
@@ -31,13 +30,15 @@ export default function ProductsAdmin() {
   const [editId, setEditId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterVeg, setFilterVeg] = useState("All");
   const [filterStock, setFilterStock] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [sellerCounts, setSellerCounts] = useState<any>({});
   const [deleteConfirm, setDeleteConfirm] = useState<{isOpen: boolean, productId: string | null}>({isOpen: false, productId: null});
+  const [showSellersModal, setShowSellersModal] = useState(false);
+  const [selectedProductSellers, setSelectedProductSellers] = useState<any>(null);
+  const [sellerDetails, setSellerDetails] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     unitType: "",
@@ -47,7 +48,10 @@ export default function ProductsAdmin() {
     description: "",
     keyFeatures: "",
     servingInstructions: "",
-    sku: ""
+    sku: "",
+    gstRate: 0,
+    cessRate: 0,
+    hsnCode: ""
   });
 
   useEffect(() => {
@@ -78,28 +82,26 @@ export default function ProductsAdmin() {
   const fetchProducts = async () => {
     const res = await fetch('/api/products');
     const data = await res.json();
-    setProducts(data);
     
-    // Fetch seller counts for each product
+    const products = Array.isArray(data) ? data : [];
+    setProducts(products);
+    
+    // Extract seller counts from products
     const counts: any = {};
-    for (const product of data) {
-      const sellerRes = await fetch(`/api/products/sellers?productId=${product._id}`);
-      const sellerData = await sellerRes.json();
-      counts[product._id] = sellerData.sellers?.length || 0;
-    }
+    products.forEach((p: any) => {
+      counts[p._id] = p.sellerCount || 0;
+    });
     setSellerCounts(counts);
   };
 
   const fetchCategories = async () => {
     const res = await fetch('/api/categories');
     const data = await res.json();
-    setCategories(data);
+    const categories = Array.isArray(data) ? data : [];
+    setCategories(categories);
   };
 
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 3000);
-  };
+
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -131,6 +133,17 @@ export default function ProductsAdmin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name || !formData.unitType || !formData.category || !formData.subcategory) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+    
+    if (uploadedImages.length === 0) {
+      toast.error('Please upload at least one product image');
+      return;
+    }
+    
     try {
       const data = {
         name: formData.name,
@@ -141,7 +154,10 @@ export default function ProductsAdmin() {
         description: formData.description,
         keyFeatures: formData.keyFeatures.split("\n").filter(f => f.trim()),
         servingInstructions: formData.servingInstructions.split("\n").filter(f => f.trim()),
-        sku: formData.sku,
+        sku: formData.sku || undefined,
+        gstRate: formData.gstRate,
+        cessRate: formData.cessRate,
+        hsnCode: formData.hsnCode,
         images: uploadedImages
       };
 
@@ -151,7 +167,7 @@ export default function ProductsAdmin() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: editId, ...data })
         });
-        showNotification('success', 'Product updated successfully!');
+        toast.success('Product updated successfully!');
         setEditId(null);
       } else {
         await fetch('/api/products', {
@@ -159,18 +175,18 @@ export default function ProductsAdmin() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-        showNotification('success', 'Product added successfully!');
+        toast.success('Product added successfully!');
       }
       
       setFormData({
         name: "", unitType: "", category: "", subcategory: "", veg: true, description: "",
-        keyFeatures: "", servingInstructions: "", sku: ""
+        keyFeatures: "", servingInstructions: "", sku: "", gstRate: 0, cessRate: 0, hsnCode: ""
       });
       setUploadedImages([]);
       setShowModal(false);
       fetchProducts();
     } catch (error) {
-      showNotification('error', 'Failed to save product');
+      toast.error('Failed to save product');
     }
   };
 
@@ -182,10 +198,10 @@ export default function ProductsAdmin() {
     if (deleteConfirm.productId) {
       try {
         await fetch(`/api/products?id=${deleteConfirm.productId}`, { method: 'DELETE' });
-        showNotification('success', 'Product deleted successfully!');
+        toast.success('Product deleted successfully!');
         fetchProducts();
       } catch (error) {
-        showNotification('error', 'Failed to delete product');
+        toast.error('Failed to delete product');
       }
     }
     setDeleteConfirm({isOpen: false, productId: null});
@@ -201,17 +217,32 @@ export default function ProductsAdmin() {
       description: prod.description,
       keyFeatures: prod.keyFeatures.join("\n"),
       servingInstructions: prod.servingInstructions.join("\n"),
-      sku: prod.sku || ""
+      sku: prod.sku || "",
+      gstRate: (prod as any).gstRate || 0,
+      cessRate: (prod as any).cessRate || 0,
+      hsnCode: (prod as any).hsnCode || ""
     });
     setUploadedImages(prod.images);
     setEditId(prod.id || (prod as any)._id);
     setShowModal(true);
   };
 
+  const viewSellers = async (product: Product) => {
+    setSelectedProductSellers(product);
+    setShowSellersModal(true);
+    
+    // Fetch seller details
+    const res = await fetch(`/api/products/sellers?productId=${product._id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setSellerDetails(data.sellers || []);
+    }
+  };
+
   const openAddModal = () => {
     setFormData({
       name: "", unitType: "", category: "", subcategory: "", veg: true, description: "",
-      keyFeatures: "", servingInstructions: "", sku: ""
+      keyFeatures: "", servingInstructions: "", sku: "", gstRate: 0, cessRate: 0, hsnCode: ""
     });
     setUploadedImages([]);
     setEditId(null);
@@ -219,24 +250,8 @@ export default function ProductsAdmin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-      <div className="flex pt-[73px]">
-        <AdminSidebar />
-        <main className="flex-1 p-8 ml-64">
-          {notification && (
-            <div className={`fixed top-24 right-8 z-50 px-6 py-4 rounded-lg shadow-lg animate-slide-in ${
-              notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-            } text-white font-medium`}>
-              {notification.message}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Product Catalog</h1>
-              <p className="text-sm text-gray-600 mt-0.5">{filteredProducts.length} products • Sellers set prices</p>
-            </div>
+    <>
+          <div className="flex items-center justify-end mb-6">
             <button onClick={openAddModal} className="bg-red-500 text-white px-5 py-2.5 rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center gap-2">
               <span>+</span> Add Product
             </button>
@@ -258,7 +273,9 @@ export default function ProductsAdmin() {
               </div>
               <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none bg-white min-w-[160px]">
                 <option value="All">All Categories</option>
-                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                {categories.map((c: any) => (
+                  <option key={c._id || c.id || c.name} value={c.name}>{c.name}</option>
+                ))}
               </select>
               <select value={filterVeg} onChange={(e) => setFilterVeg(e.target.value)} className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none bg-white min-w-[130px]">
                 <option value="All">All Types</option>
@@ -274,8 +291,8 @@ export default function ProductsAdmin() {
           </div>
 
           {showModal && (
-            <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 overflow-y-auto p-4" onClick={() => setShowModal(false)}>
-              <div className="bg-white rounded-2xl p-8 w-full max-w-3xl shadow-2xl animate-scale-in my-8" onClick={(e) => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 overflow-y-auto p-4">
+              <div className="bg-white rounded-2xl p-8 w-full max-w-3xl shadow-2xl animate-scale-in my-8">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">{editId ? 'Edit Product' : 'Add New Product'}</h2>
                   <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
@@ -287,7 +304,7 @@ export default function ProductsAdmin() {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
                       <input type="text" placeholder="Product Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" required />
                     </div>
                     <div>
@@ -306,14 +323,28 @@ export default function ProductsAdmin() {
                       <input type="text" placeholder="Product SKU" value={formData.sku} onChange={(e) => setFormData({...formData, sku: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">HSN Code</label>
+                      <input type="text" placeholder="HSN Code" value={formData.hsnCode} onChange={(e) => setFormData({...formData, hsnCode: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">GST Rate (%)</label>
+                      <input type="number" min="0" max="100" step="0.01" placeholder="0" value={formData.gstRate} onChange={(e) => setFormData({...formData, gstRate: parseFloat(e.target.value) || 0})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Cess Rate (%)</label>
+                      <input type="number" min="0" max="100" step="0.01" placeholder="0" value={formData.cessRate} onChange={(e) => setFormData({...formData, cessRate: parseFloat(e.target.value) || 0})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
                       <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value, subcategory: ""})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" required>
                         <option value="">Select Category</option>
-                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        {categories.map((c: any) => (
+                          <option key={c._id || c.id || c.name} value={c.name}>{c.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Subcategory</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Subcategory *</label>
                       <select value={formData.subcategory} onChange={(e) => setFormData({...formData, subcategory: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" required disabled={!formData.category}>
                         <option value="">Select Subcategory</option>
                         {categories.find(c => c.name === formData.category)?.subcategories?.map((sub: any, idx: number) => (
@@ -377,7 +408,7 @@ export default function ProductsAdmin() {
             {filteredProducts.map((prod) => (
               <div key={prod.id || (prod as any)._id} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-gray-100">
                 <div className="relative h-44">
-                  <img src={prod.images[0]} alt={prod.name} className="w-full h-full object-cover" />
+                  <img src={prod.images?.[0] || '/placeholder.jpg'} alt={prod.name} className="w-full h-full object-cover" />
                   <div className={`absolute top-2 left-2 w-5 h-5 border-2 ${prod.veg ? 'border-green-600' : 'border-red-600'} rounded flex items-center justify-center bg-white shadow-sm`}>
                     <div className={`w-2.5 h-2.5 ${prod.veg ? 'bg-green-600' : 'bg-red-600'} rounded-full`}></div>
                   </div>
@@ -389,10 +420,14 @@ export default function ProductsAdmin() {
                   {/* Seller Count Badge */}
                   <div className="mb-3">
                     {sellerCounts[prod._id || (prod as any)._id] > 0 ? (
-                      <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      <button 
+                        onClick={() => viewSellers(prod)}
+                        className="w-full bg-green-50 border border-green-200 rounded-lg px-3 py-2 hover:bg-green-100 transition-colors"
+                      >
                         <div className="text-lg font-bold text-green-600">{sellerCounts[prod._id || (prod as any)._id]}</div>
                         <div className="text-xs text-green-600">seller{sellerCounts[prod._id || (prod as any)._id] > 1 ? 's' : ''} offering</div>
-                      </div>
+                        <div className="text-xs text-green-700 font-medium mt-1">Click to view prices</div>
+                      </button>
                     ) : (
                       <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
                         <div className="text-xs text-orange-600 font-medium">No sellers yet</div>
@@ -425,8 +460,70 @@ export default function ProductsAdmin() {
               </button>
             </div>
           )}
-        </main>
-      </div>
+      
+      {/* Sellers Modal */}
+      {showSellersModal && selectedProductSellers && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowSellersModal(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">{selectedProductSellers.name}</h2>
+                <p className="text-sm text-gray-600 mt-1">{sellerDetails.length} seller{sellerDetails.length > 1 ? 's' : ''} offering this product</p>
+              </div>
+              <button onClick={() => setShowSellersModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            
+            {sellerDetails.length > 0 ? (
+              <div className="space-y-3">
+                {sellerDetails.map((seller: any, idx: number) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="text-sm text-gray-600">Pack Size</div>
+                        <div className="text-lg font-bold">{seller.unitValue} {seller.unitMeasure}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-600">Customer Pays</div>
+                        <div className="text-2xl font-bold text-blue-600">₹{seller.price}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg text-sm">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Seller Gets</div>
+                        <div className="font-bold text-green-600">₹{seller.sellerPrice}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Commission</div>
+                        <div className="font-bold text-orange-600">₹{seller.commissionAmount}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Stock</div>
+                        <div className="font-bold">{seller.stock} units</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Seller ID</div>
+                        <div className="font-mono text-xs">{seller.sellerId?.toString().slice(-6)}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-3">💰</div>
+                <p className="text-gray-600">Loading seller details...</p>
+              </div>
+            )}
+            
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <span className="font-bold">💡 Note:</span> Prices shown are what customers pay (seller base price + platform commission)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <ConfirmModal
         isOpen={deleteConfirm.isOpen}
         title="Delete Product"
@@ -436,6 +533,6 @@ export default function ProductsAdmin() {
         onCancel={() => setDeleteConfirm({isOpen: false, productId: null})}
         type="danger"
       />
-    </div>
+    </>
   );
 }

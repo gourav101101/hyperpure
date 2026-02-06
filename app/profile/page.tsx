@@ -5,28 +5,43 @@ import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import Footer from "../components/Footer";
 import LogoutModal from "../components/LogoutModal";
+import { useAppSelector, useAppDispatch } from "../store/hooks";
+import { logout } from "../store/authSlice";
+import { clearCart } from "../store/cartSlice";
+import { clearCheckout } from "../store/checkoutSlice";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { isLoggedIn, userPhone } = useAppSelector((state) => state.auth);
   const [orders, setOrders] = useState<any[]>([]);
-  const [userPhone, setUserPhone] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const phone = localStorage.getItem('userPhone');
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
     if (!isLoggedIn) {
       router.push('/catalogue');
       return;
     }
-    setUserPhone(phone || '');
     fetchOrders();
-  }, []);
+  }, [isLoggedIn, isMounted]);
 
   const fetchOrders = async () => {
-    const res = await fetch('/api/orders');
-    const data = await res.json();
-    setOrders(data);
+    setLoading(true);
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+    const res = await fetch(`/api/orders?userId=${userId}`);
+    if (res.ok) {
+      const data = await res.json();
+      setOrders(data.orders || []);
+    }
+    setLoading(false);
   };
 
   const handleLogout = () => {
@@ -42,7 +57,9 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold mb-2">My Profile</h1>
-                <p className="text-sm md:text-base text-gray-600">+91 {userPhone}</p>
+                <p className="text-sm md:text-base text-gray-600">
+                  +91 {isMounted ? userPhone : ''}
+                </p>
               </div>
               <button onClick={handleLogout} className="bg-red-500 text-white px-4 md:px-6 py-2 rounded-full font-semibold hover:bg-red-600 text-sm md:text-base">
                 Logout
@@ -52,7 +69,28 @@ export default function ProfilePage() {
 
           <div className="bg-white rounded-xl p-4 md:p-8 shadow-sm">
             <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Order History</h2>
-            {orders.length === 0 ? (
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2].map((i) => (
+                  <div key={i} className="border rounded-lg p-4 md:p-6 animate-pulse">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-32"></div>
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-6 bg-gray-200 rounded w-20"></div>
+                        <div className="h-6 bg-gray-200 rounded w-16"></div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded"></div>
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : orders.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">📦</div>
                 <p className="text-gray-600 mb-4">No orders yet</p>
@@ -98,11 +136,12 @@ export default function ProfilePage() {
       <BottomNav />
       <Footer />
       <LogoutModal open={showLogoutModal} onClose={() => setShowLogoutModal(false)} onLogout={() => {
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('userPhone');
+        dispatch(logout());
         router.push('/');
       }} onLogoutAll={async () => {
-        localStorage.clear();
+        dispatch(logout());
+        dispatch(clearCart());
+        dispatch(clearCheckout());
         router.push('/');
       }} />
     </div>

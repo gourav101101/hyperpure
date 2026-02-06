@@ -1,8 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import AdminHeader from "../components/AdminHeader";
-import AdminSidebar from "../components/AdminSidebar";
 import Link from "next/link";
 
 export default function AdminDashboard() {
@@ -17,21 +15,25 @@ export default function AdminDashboard() {
   });
 
   const fetchStats = async () => {
-    const [products, categories, blogs, users, sellers] = await Promise.all([
-      fetch('/api/products').then(r => r.json()),
-      fetch('/api/categories').then(r => r.json()),
-      fetch('/api/blogs').then(r => r.json()),
-      fetch('/api/users').then(r => r.json()),
-      fetch('/api/admin/sellers').then(r => r.json())
-    ]);
-    setStats({
-      totalProducts: products.length,
-      totalCategories: categories.length,
-      totalBlogs: blogs.length,
-      totalUsers: users.length,
-      totalSellers: sellers.length,
-      pendingSellers: sellers.filter((s: any) => s.status === 'pending').length
-    });
+    try {
+      const [products, categories, blogs, users, sellers] = await Promise.all([
+        fetch('/api/products').then(r => r.ok ? r.json() : []),
+        fetch('/api/categories').then(r => r.ok ? r.json() : []),
+        fetch('/api/blogs').then(r => r.ok ? r.json() : []),
+        fetch('/api/users').then(r => r.ok ? r.json() : []),
+        fetch('/api/admin/sellers').then(r => r.ok ? r.json() : [])
+      ]);
+      setStats({
+        totalProducts: Array.isArray(products) ? products.length : 0,
+        totalCategories: Array.isArray(categories) ? categories.length : 0,
+        totalBlogs: Array.isArray(blogs) ? blogs.length : 0,
+        totalUsers: Array.isArray(users) ? users.length : 0,
+        totalSellers: Array.isArray(sellers) ? sellers.length : 0,
+        pendingSellers: Array.isArray(sellers) ? sellers.filter((s: any) => s.status === 'pending').length : 0
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
   };
 
   useEffect(() => {
@@ -53,16 +55,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-      <div className="flex pt-[73px]">
-        <AdminSidebar />
-        <main className="flex-1 p-8 ml-64">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-0.5">Welcome back, Admin!</p>
-          </div>
-
+    <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
             {statCards.map((stat, idx) => (
               <div key={idx} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
@@ -114,8 +107,6 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
-    </div>
+    </>
   );
 }

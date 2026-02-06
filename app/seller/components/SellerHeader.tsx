@@ -1,4 +1,6 @@
-export default function SellerHeader({ sellerName }: { sellerName: string }) {
+import LiveNotifications from "@/app/components/LiveNotifications";
+
+export default function SellerHeader({ sellerName, sellerId }: { sellerName: string; sellerId: string }) {
   return (
     <header className="bg-white border-b fixed top-0 right-0 left-64 z-40 h-[73px]">
       <div className="px-8 h-full flex items-center justify-between">
@@ -7,9 +9,7 @@ export default function SellerHeader({ sellerName }: { sellerName: string }) {
           <p className="text-xs text-gray-500">{sellerName}</p>
         </div>
         <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <span className="text-xl">🔔</span>
-          </button>
+          <LiveNotifications userType="seller" userId={sellerId} />
           <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-bold">
             {sellerName.charAt(0).toUpperCase()}
           </div>
@@ -18,3 +18,4 @@ export default function SellerHeader({ sellerName }: { sellerName: string }) {
     </header>
   );
 }
+

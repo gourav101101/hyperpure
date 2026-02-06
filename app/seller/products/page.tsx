@@ -1,15 +1,44 @@
 "use client";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+// Commission Calculator Component
+function CommissionCalc({ price, rate }: any) {
+  if (!price || !rate) return null;
+  const base = parseFloat(price);
+  const fee = base * rate / 100;
+  const customer = base + fee;
+  return (
+    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-gray-600">Your Base Price</span>
+        <span className="font-bold">₹{base.toFixed(2)}</span>
+      </div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-orange-600">+ Platform Fee ({rate}%)</span>
+        <span className="font-bold text-orange-600">+₹{fee.toFixed(2)}</span>
+      </div>
+      <div className="flex justify-between text-xs pt-2 border-t border-green-200">
+        <span className="font-bold">Customer Pays</span>
+        <span className="font-bold text-blue-600">₹{customer.toFixed(2)}</span>
+      </div>
+      <div className="mt-2 pt-2 border-t border-green-200 flex justify-between text-xs">
+        <span className="text-green-700 font-bold">✓ You Receive</span>
+        <span className="font-bold text-green-600">₹{base.toFixed(2)}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function SellerProducts() {
   const [adminProducts, setAdminProducts] = useState<any[]>([]);
   const [sellerProducts, setSellerProducts] = useState<any[]>([]);
+  const [commission, setCommission] = useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [priceForm, setPriceForm] = useState({
     sellerPrice: '', unitValue: '', unitMeasure: '', stock: '', minOrderQty: '1', maxOrderQty: '', deliveryTime: '24 hours', discount: '0'
   });
@@ -24,18 +53,24 @@ export default function SellerProducts() {
     return options[unitType] || [];
   };
 
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 4000);
-  };
+
 
   useEffect(() => {
     const sellerId = localStorage.getItem('sellerId');
     if (sellerId) {
       fetchAdminProducts();
       fetchSellerProducts(sellerId);
+      fetchCommission();
     }
   }, []);
+
+  const fetchCommission = async () => {
+    const res = await fetch('/api/admin/commission');
+    if (res.ok) {
+      const data = await res.json();
+      setCommission(data);
+    }
+  };
 
   const fetchAdminProducts = async () => {
     const res = await fetch('/api/products');
@@ -72,14 +107,14 @@ export default function SellerProducts() {
       });
       const result = await res.json();
       if (res.ok) {
-        showNotification('success', 'Product added successfully!');
+        toast.success('Product added successfully!');
         setShowAddModal(false); setSelectedProduct(null); resetForm();
         fetchSellerProducts(sellerId!);
       } else {
-        showNotification('error', result.error || 'Failed to add product');
+        toast.error(result.error || 'Failed to add product');
       }
     } catch (error) {
-      showNotification('error', 'Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     }
   };
 
@@ -96,14 +131,14 @@ export default function SellerProducts() {
         })
       });
       if (res.ok) {
-        showNotification('success', 'Product updated successfully!');
+        toast.success('Product updated successfully!');
         setEditingProduct(null); resetForm();
         fetchSellerProducts(localStorage.getItem('sellerId')!);
       } else {
-        showNotification('error', 'Failed to update product');
+        toast.error('Failed to update product');
       }
     } catch (error) {
-      showNotification('error', 'Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     }
   };
 
@@ -117,13 +152,13 @@ export default function SellerProducts() {
     try {
       const res = await fetch(`/api/seller/products?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        showNotification('success', 'Product removed successfully!');
+        toast.success('Product removed successfully!');
         fetchSellerProducts(localStorage.getItem('sellerId')!);
       } else {
-        showNotification('error', 'Failed to remove product');
+        toast.error('Failed to remove product');
       }
     } catch (error) {
-      showNotification('error', 'Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     } finally {
       setConfirmDeleteId(null);
     }
@@ -136,6 +171,62 @@ export default function SellerProducts() {
       body: JSON.stringify({ id: product._id, isActive: !product.isActive })
     });
     fetchSellerProducts(localStorage.getItem('sellerId')!);
+  };
+
+  const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const text = await file.text();
+    const lines = text.split('\n').filter(l => l.trim());
+    const headers = lines[0].split(',').map(h => h.trim());
+    
+    // Expected CSV format: productName,packSize,unit,price,stock,discount
+    const products = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      if (values.length < 5) continue;
+      
+      const [productName, packSize, unit, price, stock, discount = '0'] = values;
+      const adminProduct = adminProducts.find(p => p.name.toLowerCase() === productName.toLowerCase());
+      
+      if (adminProduct) {
+        products.push({
+          productId: adminProduct._id,
+          sellerPrice: parseFloat(price),
+          unitValue: parseFloat(packSize),
+          unitMeasure: unit,
+          stock: parseInt(stock),
+          discount: parseFloat(discount),
+          minOrderQty: 1,
+          deliveryTime: '24 hours'
+        });
+      }
+    }
+    
+    if (products.length === 0) {
+      toast.error('No valid products found in CSV');
+      return;
+    }
+    
+    const sellerId = localStorage.getItem('sellerId');
+    let success = 0;
+    for (const product of products) {
+      try {
+        const res = await fetch('/api/seller/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sellerId, ...product })
+        });
+        if (res.ok) success++;
+      } catch (error) {
+        console.error('Error uploading product:', error);
+      }
+    }
+    
+    toast.success(`Successfully uploaded ${success} out of ${products.length} products`);
+    fetchSellerProducts(sellerId!);
+    e.target.value = '';
   };
 
   // state for in-app delete confirmation
@@ -151,22 +242,27 @@ export default function SellerProducts() {
 
   return (
     <div className="p-8">
-      {notification && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg animate-slide-in ${
-          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        } text-white font-medium`}>
-          {notification.message}
-        </div>
-      )}
 
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">My Products</h2>
           <p className="text-sm text-gray-600 mt-1">Set your pack size, brand & price</p>
+          <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 inline-flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <span className="text-xs text-blue-700 font-medium">Your business name is hidden from customers. Hyperpure handles all deliveries.</span>
+          </div>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2">
-          <span>➕</span> Add Product
-        </button>
+        <div className="flex gap-3">
+          <label className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer flex items-center gap-2">
+            <span>📤</span> Bulk Upload CSV
+            <input type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
+          </label>
+          <button onClick={() => setShowAddModal(true)} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2">
+            <span>➕</span> Add Product
+          </button>
+        </div>
       </div>
 
       {sellerProducts.length > 0 && (
@@ -174,6 +270,20 @@ export default function SellerProducts() {
           <button className="px-4 py-2 bg-white border rounded-lg text-sm font-medium">All ({sellerProducts.length})</button>
           <button className="px-4 py-2 bg-white border rounded-lg text-sm font-medium">Active ({sellerProducts.filter(p => p.isActive).length})</button>
           <button className="px-4 py-2 bg-white border rounded-lg text-sm font-medium">Low Stock ({sellerProducts.filter(p => p.stock < 10).length})</button>
+          <button 
+            onClick={() => {
+              const csv = 'productName,packSize,unit,price,stock,discount\nTomatoes,1,kg,50,100,0\nOnions,500,g,30,200,5';
+              const blob = new Blob([csv], { type: 'text/csv' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'sample_bulk_upload.csv';
+              a.click();
+            }}
+            className="ml-auto px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium hover:bg-blue-100"
+          >
+            📎 Download Sample CSV
+          </button>
         </div>
       )}
 
@@ -216,6 +326,7 @@ export default function SellerProducts() {
                       <td className="px-6 py-4"><div className="text-sm font-medium">{sp.unitValue} {sp.unitMeasure}</div></td>
                       <td className="px-6 py-4">
                         <div className="text-lg font-bold text-green-600">₹{sp.sellerPrice}</div>
+                        <div className="text-xs text-blue-600">Customer: ₹{(sp.sellerPrice * (1 + (commission?.commissionRate || 10) / 100)).toFixed(0)}</div>
                         {sp.discount > 0 && <div className="text-xs text-orange-600">{sp.discount}% OFF</div>}
                       </td>
                       <td className="px-6 py-4">
@@ -320,10 +431,14 @@ export default function SellerProducts() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
+                      <div>
                         <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Your Price (₹) *</label>
-                          <input type="number" step="0.01" value={priceForm.sellerPrice} onChange={(e) => setPriceForm({...priceForm, sellerPrice: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="99" required />
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Your Base Price (₹) *</label>
+                          <input type="number" step="0.01" value={priceForm.sellerPrice} onChange={(e) => setPriceForm({...priceForm, sellerPrice: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="80" required />
+                          <p className="text-xs text-gray-500 mt-1">Amount you want to receive</p>
                         </div>
+                        <CommissionCalc price={priceForm.sellerPrice} rate={commission?.commissionRate} />
+                      </div>
                         <div>
                           <label className="block text-xs font-semibold text-gray-700 mb-1.5">Discount (%)</label>
                           <input type="number" step="0.01" min="0" max="100" value={priceForm.discount} onChange={(e) => setPriceForm({...priceForm, discount: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="0" />
@@ -476,8 +591,12 @@ export default function SellerProducts() {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">Your Price (₹) *</label>
-                        <input type="number" step="0.01" value={priceForm.sellerPrice} onChange={(e) => setPriceForm({...priceForm, sellerPrice: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="99" required />
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1.5">Your Base Price (₹) *</label>
+                          <input type="number" step="0.01" value={priceForm.sellerPrice} onChange={(e) => setPriceForm({...priceForm, sellerPrice: e.target.value})} className="w-full px-3 py-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none" placeholder="80" required />
+                          <p className="text-xs text-gray-500 mt-1">Amount you want to receive</p>
+                        </div>
+                        <CommissionCalc price={priceForm.sellerPrice} rate={commission?.commissionRate} />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">Discount (%)</label>
