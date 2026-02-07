@@ -17,7 +17,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    const shouldEnableSocket =
+      process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_ENABLE_SOCKET === 'true';
+
+    if (!shouldEnableSocket) return;
+
     const baseUrl = getBaseUrl();
+    if (!baseUrl) return;
 
     const socketInstance = io(baseUrl, {
       path: '/api/socket',

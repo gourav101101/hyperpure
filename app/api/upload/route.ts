@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import cloudinary from '@/lib/cloudinary';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
     
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -21,7 +27,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: (result as any).secure_url });
   } catch (error) {
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Upload failed', detail: (error as Error)?.message ?? 'Unknown error' },
+      { status: 500 }
+    );
   }
 }
 
