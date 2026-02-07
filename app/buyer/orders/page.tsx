@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
@@ -11,13 +11,9 @@ export default function BuyerOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const id = userId || userPhone || localStorage.getItem('userId');
+    const id = userId || userPhone || localStorage.getItem("userId");
     if (!id) {
       setLoading(false);
       return;
@@ -28,7 +24,26 @@ export default function BuyerOrdersPage() {
       setOrders(data.orders || []);
     }
     setLoading(false);
-  };
+  }, [userId, userPhone]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    const handleFocus = () => fetchOrders();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchOrders();
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchOrders]);
 
   if (loading) {
     return (
@@ -49,7 +64,15 @@ export default function BuyerOrdersPage() {
     <div className="min-h-screen bg-gray-50">
       <Header isLoggedIn={true} />
       <div className="max-w-4xl mx-auto px-4 py-8 pt-24">
-        <h1 className="text-3xl font-bold mb-6">Your Orders</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Your Orders</h1>
+          <button
+            onClick={fetchOrders}
+            className="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold hover:bg-gray-100"
+          >
+            Refresh
+          </button>
+        </div>
         
         {orders.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center">

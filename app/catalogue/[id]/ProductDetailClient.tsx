@@ -25,6 +25,17 @@ interface Product {
   sku?: string;
 }
 
+const toWishlistItem = (p: Product) => ({
+  _id: p._id ?? p.id,
+  name: p.name,
+  price: p.price,
+  images: p.images,
+  unit: p.unit,
+  category: p.category,
+  veg: p.veg,
+  inStock: p.inStock,
+});
+
 export default function ProductDetailClient({ id }: { id: string }) {
   const { addToCart, updateQuantity, getCartItem, cart } = useCart();
   const dispatch = useAppDispatch();
@@ -116,24 +127,25 @@ export default function ProductDetailClient({ id }: { id: string }) {
   }, [id]);
 
   const toggleWishlist = async () => {
-    if (!product || !product._id) return;
-
     if (!authLoggedIn || !userId) {
+      if (!product) return;
+      const wishlistItem = toWishlistItem(product);
       const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
       if (isInWishlist) {
-        const updated = wishlist.filter((item: any) => item._id !== product._id);
+        const updated = wishlist.filter((item: any) => item._id !== wishlistItem._id);
         localStorage.setItem('wishlist', JSON.stringify(updated));
-        dispatch(removeFromWishlist(product._id));
+        dispatch(removeFromWishlist(wishlistItem._id));
         setIsInWishlist(false);
       } else {
-        wishlist.push(product);
+        wishlist.push(wishlistItem);
         localStorage.setItem('wishlist', JSON.stringify(wishlist));
-        dispatch(addToWishlist(product));
+        dispatch(addToWishlist(wishlistItem));
         setIsInWishlist(true);
       }
       return;
     }
 
+    if (!product || !product._id) return;
     try {
       if (isInWishlist) {
         const res = await fetch('/api/wishlist', {
@@ -152,7 +164,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
           body: JSON.stringify({ userId, productId: product._id }),
         });
         if (res.ok) {
-          dispatch(addToWishlist(product));
+          dispatch(addToWishlist(toWishlistItem(product)));
           setIsInWishlist(true);
         }
       }
