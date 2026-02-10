@@ -31,7 +31,6 @@ export async function GET(req: NextRequest) {
     }
     
     const orders = await Order.find(query)
-      .populate('userId', 'name phone')
       .sort({ createdAt: -1 })
       .lean();
     

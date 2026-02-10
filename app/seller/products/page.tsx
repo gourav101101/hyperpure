@@ -181,15 +181,21 @@ export default function SellerProducts() {
   };
 
   const toggleActive = async (product: any) => {
+    setStatusChangeProduct(product);
+  };
+
+  const confirmStatusChange = async () => {
+    if (!statusChangeProduct) return;
     await fetch('/api/seller/products', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: product._id, isActive: !product.isActive })
+      body: JSON.stringify({ id: statusChangeProduct._id, isActive: !statusChangeProduct.isActive })
     });
     const session = getSellerSession();
     if (session.sellerId) {
       fetchSellerProducts(session.sellerId);
     }
+    setStatusChangeProduct(null);
   };
 
   const parseCsv = (input: string) => {
@@ -302,11 +308,10 @@ export default function SellerProducts() {
     e.target.value = '';
   };
 
-  // state for in-app delete confirmation
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [statusChangeProduct, setStatusChangeProduct] = useState<any>(null);
 
   const availableProducts = adminProducts.filter(ap => 
-    !sellerProducts.some(sp => sp.productId?._id === ap._id) &&
     (filterCategory === "All" || ap.category === filterCategory) &&
     (searchQuery === "" || ap.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -589,13 +594,13 @@ export default function SellerProducts() {
                               {priceForm.sellerPrice ? (
                                 <div>
                                   <div className="flex items-baseline gap-2">
-                                    <span className="text-2xl font-bold text-green-600">Rs. {priceForm.sellerPrice}</span>
+                                    <span className="text-2xl font-bold text-green-600">Rs. {(parseFloat(priceForm.sellerPrice) * (1 + (commission?.commissionRate || 10) / 100)).toFixed(0)}</span>
                                     {priceForm.discount && parseFloat(priceForm.discount) > 0 && (
-                                      <span className="text-sm text-gray-400 line-through">Rs. {(parseFloat(priceForm.sellerPrice) / (1 - parseFloat(priceForm.discount) / 100)).toFixed(0)}</span>
+                                      <span className="text-sm text-gray-400 line-through">Rs. {(parseFloat(priceForm.sellerPrice) * (1 + (commission?.commissionRate || 10) / 100) / (1 - parseFloat(priceForm.discount) / 100)).toFixed(0)}</span>
                                     )}
                                   </div>
                                   {priceForm.discount && parseFloat(priceForm.discount) > 0 && (
-                                    <span className="text-xs text-green-600 font-semibold">Save Rs. {(parseFloat(priceForm.sellerPrice) / (1 - parseFloat(priceForm.discount) / 100) - parseFloat(priceForm.sellerPrice)).toFixed(0)}</span>
+                                    <span className="text-xs text-green-600 font-semibold">Save Rs. {(parseFloat(priceForm.sellerPrice) * (1 + (commission?.commissionRate || 10) / 100) / (1 - parseFloat(priceForm.discount) / 100) - parseFloat(priceForm.sellerPrice) * (1 + (commission?.commissionRate || 10) / 100)).toFixed(0)}</span>
                                   )}
                                 </div>
                               ) : (
@@ -744,13 +749,13 @@ export default function SellerProducts() {
                             {priceForm.sellerPrice ? (
                               <div>
                                 <div className="flex items-baseline gap-2">
-                                  <span className="text-2xl font-bold text-green-600">Rs. {priceForm.sellerPrice}</span>
+                                  <span className="text-2xl font-bold text-green-600">Rs. {(parseFloat(priceForm.sellerPrice) * (1 + (commission?.commissionRate || 10) / 100)).toFixed(0)}</span>
                                   {priceForm.discount && parseFloat(priceForm.discount) > 0 && (
-                                    <span className="text-sm text-gray-400 line-through">Rs. {(parseFloat(priceForm.sellerPrice) / (1 - parseFloat(priceForm.discount) / 100)).toFixed(0)}</span>
+                                    <span className="text-sm text-gray-400 line-through">Rs. {(parseFloat(priceForm.sellerPrice) * (1 + (commission?.commissionRate || 10) / 100) / (1 - parseFloat(priceForm.discount) / 100)).toFixed(0)}</span>
                                   )}
                                 </div>
                                 {priceForm.discount && parseFloat(priceForm.discount) > 0 && (
-                                  <span className="text-xs text-green-600 font-semibold">Save Rs. {(parseFloat(priceForm.sellerPrice) / (1 - parseFloat(priceForm.discount) / 100) - parseFloat(priceForm.sellerPrice)).toFixed(0)}</span>
+                                  <span className="text-xs text-green-600 font-semibold">Save Rs. {(parseFloat(priceForm.sellerPrice) * (1 + (commission?.commissionRate || 10) / 100) / (1 - parseFloat(priceForm.discount) / 100) - parseFloat(priceForm.sellerPrice) * (1 + (commission?.commissionRate || 10) / 100)).toFixed(0)}</span>
                                 )}
                               </div>
                             ) : (
@@ -785,6 +790,25 @@ export default function SellerProducts() {
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 border rounded">Cancel</button>
               <button onClick={() => performDeleteProduct(confirmDeleteId)} className="px-4 py-2 bg-red-600 text-white rounded">Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusChangeProduct && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-2">{statusChangeProduct.isActive ? 'Deactivate' : 'Activate'} product?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {statusChangeProduct.isActive 
+                ? 'This product will be hidden from customers and they won\'t be able to order it.' 
+                : 'This product will be visible to customers and available for ordering.'}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setStatusChangeProduct(null)} className="px-4 py-2 border rounded">Cancel</button>
+              <button onClick={confirmStatusChange} className={`px-4 py-2 text-white rounded ${statusChangeProduct.isActive ? 'bg-orange-600' : 'bg-green-600'}`}>
+                {statusChangeProduct.isActive ? 'Deactivate' : 'Activate'}
+              </button>
             </div>
           </div>
         </div>

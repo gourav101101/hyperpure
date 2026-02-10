@@ -13,9 +13,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Seller ID required' }, { status: 400 });
     }
     
-    const sellerProducts = await SellerProduct.find({ sellerId }).populate('productId');
+    const sellerProducts = await SellerProduct.find({ sellerId }).populate('productId').lean();
     return NextResponse.json({ products: sellerProducts });
   } catch (error) {
+    console.error('Seller products API error:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
 }
