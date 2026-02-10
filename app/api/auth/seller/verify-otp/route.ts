@@ -42,7 +42,9 @@ export async function POST(req: NextRequest) {
         suspended: 'Your seller account has been suspended. Please contact support for assistance.'
       };
       return NextResponse.json({ 
-        error: statusMessages[seller.status as keyof typeof statusMessages] || 'Account access denied. Contact support.'
+        error: statusMessages[seller.status as keyof typeof statusMessages] || 'Account access denied. Contact support.',
+        status: seller.status,
+        rejectionReason: seller.rejectionReason
       }, { status: 403 });
     }
     

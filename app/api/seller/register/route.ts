@@ -7,13 +7,27 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     const data = await req.json();
     
-    const existingSeller = await Seller.findOne({ 
-      $or: [{ phone: data.phone }, { email: data.email }] 
-    });
-    
-    if (existingSeller) {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
       return NextResponse.json({ 
-        error: 'Phone number or email already registered' 
+        error: 'Invalid email format' 
+      }, { status: 400 });
+    }
+    
+    // Check for existing phone
+    const existingPhone = await Seller.findOne({ phone: data.phone });
+    if (existingPhone) {
+      return NextResponse.json({ 
+        error: 'Phone number already registered' 
+      }, { status: 400 });
+    }
+    
+    // Check for existing email
+    const existingEmail = await Seller.findOne({ email: data.email });
+    if (existingEmail) {
+      return NextResponse.json({ 
+        error: 'Email already registered' 
       }, { status: 400 });
     }
     

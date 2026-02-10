@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const SellerSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true, unique: true },
-  email: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
   businessName: { type: String },
   businessType: { type: String, enum: ["manufacturer", "distributor"], required: true },
   brandNames: { type: String },
