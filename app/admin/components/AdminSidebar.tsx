@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { clearAdminSession } from "@/app/admin/utils/session";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -34,29 +35,29 @@ export default function AdminSidebar() {
 
   useEffect(() => {
     if (activeRef.current) {
-      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      activeRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [activeMenu]);
 
   const menuItems = [
-    { id: "dashboard", icon: "📊", label: "Dashboard", href: "/admin/dashboard" },
-    { id: "notifications", icon: "🔔", label: "Notifications", href: "/admin/notifications" },
-    { id: "sellers", icon: "🏪", label: "Sellers", href: "/admin/sellers" },
-    { id: "commission", icon: "💰", label: "Commission", href: "/admin/commission" },
-    { id: "payouts", icon: "💳", label: "Payouts", href: "/admin/payouts" },
-    { id: "delivery-slots", icon: "🚚", label: "Delivery Slots", href: "/admin/delivery-slots" },
-    { id: "analytics", icon: "📈", label: "Analytics", href: "/admin/analytics" },
-    { id: "bulk-orders", icon: "📦", label: "Bulk Orders", href: "/admin/bulk-orders" },
-    { id: "campaigns", icon: "📧", label: "Campaigns", href: "/admin/campaigns" },
-    { id: "products", icon: "🍽️", label: "Products", href: "/admin/products" },
-    { id: "categories", icon: "🗂️", label: "Categories", href: "/admin/categories" },
-    { id: "locations", icon: "📍", label: "Locations", href: "/admin/locations" },
-    { id: "blogs", icon: "📝", label: "Blogs", href: "/admin/blogs" },
-    { id: "users", icon: "👥", label: "Users", href: "/admin/users" }
+    { id: "dashboard", label: "Dashboard", href: "/admin/dashboard" },
+    { id: "notifications", label: "Notifications", href: "/admin/notifications" },
+    { id: "sellers", label: "Sellers", href: "/admin/sellers" },
+    { id: "commission", label: "Commission", href: "/admin/commission" },
+    { id: "payouts", label: "Payouts", href: "/admin/payouts" },
+    { id: "delivery-slots", label: "Delivery Slots", href: "/admin/delivery-slots" },
+    { id: "analytics", label: "Analytics", href: "/admin/analytics" },
+    { id: "bulk-orders", label: "Bulk Orders", href: "/admin/bulk-orders" },
+    { id: "campaigns", label: "Campaigns", href: "/admin/campaigns" },
+    { id: "products", label: "Products", href: "/admin/products" },
+    { id: "categories", label: "Categories", href: "/admin/categories" },
+    { id: "locations", label: "Locations", href: "/admin/locations" },
+    { id: "blogs", label: "Blogs", href: "/admin/blogs" },
+    { id: "users", label: "Users", href: "/admin/users" }
   ];
 
   const handleLogout = () => {
-    localStorage.clear();
+    clearAdminSession();
     window.location.href = "/admin/login";
   };
 
@@ -70,21 +71,20 @@ export default function AdminSidebar() {
       </div>
       <div className="flex-1 overflow-y-auto py-4 px-3">
         <nav className="space-y-1">
-        {menuItems.map((item) => (
-          <a
-            key={item.id}
-            href={item.href}
-            ref={mounted && activeMenu === item.id ? activeRef : null}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              mounted && activeMenu === item.id
-                ? "bg-red-500 text-white shadow-lg"
-                : "text-slate-200 hover:bg-slate-700"
-            }`}
-          >
-            <span className="text-xl">{item.icon}</span>
-            <span>{item.label}</span>
-          </a>
-        ))}
+          {menuItems.map((item) => (
+            <a
+              key={item.id}
+              href={item.href}
+              ref={mounted && activeMenu === item.id ? activeRef : null}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                mounted && activeMenu === item.id
+                  ? "bg-red-500 text-white shadow-lg"
+                  : "text-slate-200 hover:bg-slate-700"
+              }`}
+            >
+              <span>{item.label}</span>
+            </a>
+          ))}
         </nav>
       </div>
       <div className="p-4 border-t border-slate-700">
@@ -92,7 +92,6 @@ export default function AdminSidebar() {
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-200 hover:bg-red-500 hover:text-white transition-colors font-medium"
         >
-          <span className="text-xl">🚪</span>
           <span>Logout</span>
         </button>
       </div>

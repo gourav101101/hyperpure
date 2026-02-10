@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -90,7 +90,7 @@ export default function CommissionSettings() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Commission Mode */}
         <div className="bg-white rounded-xl border p-6 lg:col-span-2">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">⚙️ Commission Mode</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Commission Mode</h3>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -117,7 +117,7 @@ export default function CommissionSettings() {
         {!commission.useTierCommission && (
           <>
             <div className="bg-white rounded-xl border p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">💰 Platform Commission Rate</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Platform Commission Rate</h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -138,10 +138,10 @@ export default function CommissionSettings() {
             </div>
 
             <div className="bg-white rounded-xl border p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">🚚 Delivery Fee</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Delivery Fee</h3>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Flat Delivery Fee (₹)
+                  Flat Delivery Fee (Rs.)
                 </label>
                 <input
                   type="number"
@@ -163,10 +163,7 @@ export default function CommissionSettings() {
               <div key={tier.tier} className="bg-white rounded-xl border p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-gray-900 capitalize">
-                    {tier.tier === 'new' && '🆕'}
-                    {tier.tier === 'standard' && '⭐'}
-                    {tier.tier === 'premium' && '👑'}
-                    {' '}{tier.tier} Tier
+                    {tier.tier} Tier
                   </h3>
                   <button
                     onClick={() => saveTier(tier)}
@@ -206,7 +203,7 @@ export default function CommissionSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Min Revenue (₹)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Min Revenue (Rs.)</label>
                     <input
                       type="number"
                       value={tier.minRevenue}
@@ -231,10 +228,10 @@ export default function CommissionSettings() {
         {/* Delivery Fee (always shown) */}
         {commission.useTierCommission && (
           <div className="bg-white rounded-xl border p-6 lg:col-span-2">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">🚚 Delivery Fee</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Delivery Fee</h3>
             <div className="max-w-md">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Flat Delivery Fee (₹)
+                Flat Delivery Fee (Rs.)
               </label>
               <input
                 type="number"
@@ -250,44 +247,44 @@ export default function CommissionSettings() {
 
         {/* Commission Calculator */}
         <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-6 lg:col-span-2">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">📊 Commission Calculator</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Commission Calculator</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-2">Order Value: ₹1000</p>
+              <p className="text-sm text-gray-600 mb-2">Order Value: Rs. 1000</p>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Seller Receives</span>
-                  <span className="font-bold text-green-600">₹{(1000 * (100 - commission.commissionRate) / 100).toFixed(0)}</span>
+                  <span className="font-bold text-green-600">Rs. {(1000 * (100 - commission.commissionRate) / 100).toFixed(0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Platform Commission ({commission.commissionRate}%)</span>
-                  <span className="font-bold text-orange-600">₹{(1000 * commission.commissionRate / 100).toFixed(0)}</span>
+                  <span className="font-bold text-orange-600">Rs. {(1000 * commission.commissionRate / 100).toFixed(0)}</span>
                 </div>
               </div>
             </div>
             <div className="bg-white rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-2">Order Value: ₹2500</p>
+              <p className="text-sm text-gray-600 mb-2">Order Value: Rs. 2500</p>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Seller Receives</span>
-                  <span className="font-bold text-green-600">₹{(2500 * (100 - commission.commissionRate) / 100).toFixed(0)}</span>
+                  <span className="font-bold text-green-600">Rs. {(2500 * (100 - commission.commissionRate) / 100).toFixed(0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Platform Commission ({commission.commissionRate}%)</span>
-                  <span className="font-bold text-orange-600">₹{(2500 * commission.commissionRate / 100).toFixed(0)}</span>
+                  <span className="font-bold text-orange-600">Rs. {(2500 * commission.commissionRate / 100).toFixed(0)}</span>
                 </div>
               </div>
             </div>
             <div className="bg-white rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-2">Order Value: ₹5000</p>
+              <p className="text-sm text-gray-600 mb-2">Order Value: Rs. 5000</p>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Seller Receives</span>
-                  <span className="font-bold text-green-600">₹{(5000 * (100 - commission.commissionRate) / 100).toFixed(0)}</span>
+                  <span className="font-bold text-green-600">Rs. {(5000 * (100 - commission.commissionRate) / 100).toFixed(0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Platform Commission ({commission.commissionRate}%)</span>
-                  <span className="font-bold text-orange-600">₹{(5000 * commission.commissionRate / 100).toFixed(0)}</span>
+                  <span className="font-bold text-orange-600">Rs. {(5000 * commission.commissionRate / 100).toFixed(0)}</span>
                 </div>
               </div>
             </div>
@@ -295,7 +292,7 @@ export default function CommissionSettings() {
           <div className="mt-4 bg-white rounded-lg p-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Customer Delivery Fee</span>
-              <span className="font-bold text-blue-600">₹{commission.deliveryFee}</span>
+              <span className="font-bold text-blue-600">Rs. {commission.deliveryFee}</span>
             </div>
           </div>
         </div>
@@ -304,15 +301,14 @@ export default function CommissionSettings() {
       {/* Info Box */}
       <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
         <div className="flex gap-3">
-          <span className="text-2xl">💡</span>
           <div>
             <h4 className="font-bold text-gray-900 mb-2">How Commission Works</h4>
             <ul className="text-sm text-gray-700 space-y-1">
-              <li>• Commission is automatically deducted from seller's earnings on each order</li>
-              <li>• Single commission rate applies to all sellers equally</li>
-              <li>• Delivery fee is added to customer's total bill</li>
-              <li>• Changes apply to new orders immediately</li>
-              <li>• Sellers see net earnings after commission in their dashboard</li>
+              <li>- Commission is automatically deducted from seller's earnings on each order</li>
+              <li>- Single commission rate applies to all sellers equally</li>
+              <li>- Delivery fee is added to customer's total bill</li>
+              <li>- Changes apply to new orders immediately</li>
+              <li>- Sellers see net earnings after commission in their dashboard</li>
             </ul>
           </div>
         </div>

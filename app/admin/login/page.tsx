@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { setAdminSessionCookies } from "@/app/admin/utils/session";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -12,7 +13,8 @@ export default function AdminLogin() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (email === "admin@hyperpure.com" && password === "admin123") {
-      localStorage.setItem('adminAuth', 'true');
+      localStorage.setItem("adminAuth", "true");
+      setAdminSessionCookies();
       router.push("/admin/dashboard");
     } else {
       toast.error("Invalid credentials! Use: admin@hyperpure.com / admin123");
@@ -54,7 +56,7 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                placeholder="••••••••"
+                placeholder="********"
                 required
               />
               <button

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SellerHeader from "./components/SellerHeader";
 import SellerSidebar from "./components/SellerSidebar";
+import { getSellerSession } from "@/app/seller/utils/session";
 
 export default function SellerLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -10,12 +11,10 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const userRole = localStorage.getItem('userRole');
-    const sellerId = localStorage.getItem('sellerId');
-
-    if (!isLoggedIn || userRole !== 'seller' || !sellerId) {
-      router.push('/register-seller');
+    const { sellerId, userRole, isLoggedIn } = getSellerSession();
+    if (!isLoggedIn || userRole !== "seller" || !sellerId) {
+      setLoading(false);
+      router.push("/register-seller");
       return;
     }
 
@@ -30,7 +29,7 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
         setSellerData(data);
       }
     } catch (error) {
-      console.error('Failed to fetch seller data');
+      console.error("Failed to fetch seller data");
     }
     setLoading(false);
   };
@@ -50,7 +49,7 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="text-6xl mb-4">⚠️</div>
+          <div className="text-4xl mb-4">!</div>
           <p className="text-gray-600">Error loading data</p>
         </div>
       </div>

@@ -17,16 +17,16 @@ export async function GET(req: NextRequest) {
     const sellerProducts = await SellerProduct.find({ 
       sellerId, 
       isActive: true 
-    }).populate('productId', 'name').lean();
+    }).lean();
     
     const insights = [];
     
     for (const sp of sellerProducts) {
-      if (productId && sp.productId._id.toString() !== productId) continue;
+      if (productId && sp.productId?.toString() !== productId) continue;
       
       // Get all competitors for this product
       const competitors = await SellerProduct.find({
-        productId: sp.productId._id,
+        productId: sp.productId,
         sellerId: { $ne: sellerId },
         isActive: true,
         stock: { $gt: 0 }
@@ -57,8 +57,8 @@ export async function GET(req: NextRequest) {
       }
       
       insights.push({
-        productId: sp.productId._id,
-        productName: sp.productId.name,
+        productId: sp.productId,
+        productName: sp.name || 'Product',
         myPrice,
         minPrice,
         maxPrice,

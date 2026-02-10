@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
+import { getSellerSession } from "@/app/seller/utils/session";
 
 export default function CollectionSchedule() {
   const [slots, setSlots] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -14,9 +16,15 @@ export default function CollectionSchedule() {
 
   const fetchData = async () => {
     try {
+      const session = getSellerSession();
+      if (!session.sellerId) {
+        setError("Seller session not found. Please log in.");
+        setLoading(false);
+        return;
+      }
       const [slotsRes, ordersRes] = await Promise.all([
         fetch('/api/admin/delivery-slots'),
-        fetch('/api/seller/orders')
+        fetch(`/api/seller/orders?sellerId=${session.sellerId}&status=pending`)
       ]);
       
       if (slotsRes.ok) {
@@ -30,6 +38,7 @@ export default function CollectionSchedule() {
       }
     } catch (error) {
       console.error('Failed to fetch data');
+      setError("Failed to load collection schedule.");
     }
     setLoading(false);
   };
@@ -55,6 +64,7 @@ export default function CollectionSchedule() {
   };
 
   if (loading) return <div className="p-8">Loading...</div>;
+  if (error) return <div className="p-8">{error}</div>;
 
   return (
     <div className="p-6">
@@ -120,7 +130,7 @@ export default function CollectionSchedule() {
                           <p className="text-sm text-gray-600">{order.items?.length || 0} items</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold">₹{order.totalAmount}</p>
+                          <p className="font-bold">Rs. {order.totalAmount}</p>
                           <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleTimeString()}</p>
                         </div>
                       </div>
@@ -132,7 +142,7 @@ export default function CollectionSchedule() {
               {!isPastCutoff && slotOrders.length > 0 && (
                 <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-sm text-yellow-800">
-                    ⚠️ <span className="font-bold">Action Required:</span> Prepare {slotOrders.length} order(s) before {slot.sellerCollectionTime}
+                    <span className="font-bold">Action Required:</span> Prepare {slotOrders.length} order(s) before {slot.sellerCollectionTime}
                   </p>
                 </div>
               )}
@@ -143,7 +153,6 @@ export default function CollectionSchedule() {
 
       {slots.length === 0 && (
         <div className="text-center py-12 bg-white rounded-xl">
-          <div className="text-6xl mb-4">📦</div>
           <h3 className="text-xl font-bold mb-2">No delivery slots configured</h3>
           <p className="text-gray-600">Contact admin to set up delivery schedules</p>
         </div>

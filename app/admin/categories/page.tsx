@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -247,7 +247,7 @@ export default function CategoriesAdmin() {
                               onClick={() => setSubcategories(subcategories.filter((_, i) => i !== idx))}
                               className="text-red-500 hover:text-red-700 text-lg"
                             >
-                              ×
+                              x
                             </button>
                           </div>
                         ))}
@@ -277,7 +277,7 @@ export default function CategoriesAdmin() {
                     {cat.icon && ((cat.icon.startsWith && (cat.icon.startsWith('http') || cat.icon.startsWith('data:'))) || (cat.icon.includes && cat.icon.includes('/'))) ? (
                       <img src={cat.icon} alt={cat.name} className="w-16 h-16 mx-auto object-cover rounded-lg" />
                     ) : (
-                      <div className="w-16 h-16 flex items-center justify-center text-3xl rounded-lg bg-gray-100 mx-auto">{cat.icon || '🗂️'}</div>
+                      <div className="w-16 h-16 flex items-center justify-center text-3xl rounded-lg bg-gray-100 mx-auto">{cat.icon || ''}</div>
                     )}
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-1">{cat.name}</h3>
@@ -301,7 +301,7 @@ export default function CategoriesAdmin() {
 
           {categories.length === 0 && (
             <div className="text-center py-20">
-              <div className="text-6xl mb-4">📦</div>
+              <div className="text-6xl mb-4"></div>
               <h3 className="text-xl font-semibold text-gray-700 mb-2">No categories yet</h3>
               <p className="text-gray-500 mb-6">Start by adding your first category</p>
               <button onClick={openAddModal} className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors">

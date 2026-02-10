@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -86,12 +86,12 @@ export default function NotificationsPage() {
     <>
       <div className="flex items-center justify-end mb-6">
         <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-bold">
-          📤 Send Notification
+           Send Notification
         </button>
       </div>
 
       <div className="bg-white rounded-xl p-8 text-center">
-        <div className="text-6xl mb-4">🔔</div>
+        <div className="text-6xl mb-4"></div>
         <h3 className="text-xl font-bold mb-2">Send Notifications</h3>
         <p className="text-gray-600">Click the button above to send notifications to users or sellers</p>
       </div>
@@ -160,15 +160,15 @@ export default function NotificationsPage() {
                   onChange={(e) => setFormData({...formData, type: e.target.value})} 
                   className="w-full px-4 py-2 border rounded-lg"
                 >
-                  <option value="info">ℹ️ Info</option>
-                  <option value="new_order">🛒 New Order</option>
-                  <option value="order_status">📦 Order Status</option>
-                  <option value="payout">💰 Payout</option>
-                  <option value="low_stock">📉 Low Stock</option>
-                  <option value="price_alert">💲 Price Alert</option>
-                  <option value="review">⭐ Review</option>
-                  <option value="performance">📈 Performance</option>
-                  <option value="bulk_order">📋 Bulk Order</option>
+                  <option value="info"> Info</option>
+                  <option value="new_order"> New Order</option>
+                  <option value="order_status"> Order Status</option>
+                  <option value="payout"> Payout</option>
+                  <option value="low_stock"> Low Stock</option>
+                  <option value="price_alert"> Price Alert</option>
+                  <option value="review"> Review</option>
+                  <option value="performance"> Performance</option>
+                  <option value="bulk_order"> Bulk Order</option>
                 </select>
               </div>
 

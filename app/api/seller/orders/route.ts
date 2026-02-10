@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/mongodb';
 import Order from '@/models/Order';
 import SellerPerformance from '@/models/SellerPerformance';
@@ -7,17 +8,24 @@ export async function GET(req: NextRequest) {
   try {
     await dbConnect();
     const { searchParams } = new URL(req.url);
-    const sellerId = searchParams.get('sellerId');
+    const sellerId = searchParams.get('sellerId') || req.headers.get('x-seller-id');
     const status = searchParams.get('status');
     
     if (!sellerId) {
       return NextResponse.json({ error: 'Seller ID required' }, { status: 400 });
     }
-    
+
+    const sellerIdValue = mongoose.Types.ObjectId.isValid(sellerId)
+      ? new mongoose.Types.ObjectId(sellerId)
+      : sellerId;
+
     const query: any = {
-      'items.sellerId': sellerId
+      $or: [
+        { 'items.sellerId': sellerIdValue },
+        { 'assignedSellers.sellerId': sellerIdValue }
+      ]
     };
-    
+
     if (status && status !== 'all') {
       query.status = status;
     }
@@ -30,16 +38,31 @@ export async function GET(req: NextRequest) {
     // Filter items to show only this seller's items
     const filteredOrders = orders.map((order: any) => {
       const sellerItems = order.items.filter((item: any) => item.sellerId?.toString() === sellerId);
-      const grossTotal = sellerItems.reduce((sum: number, item: any) => 
+      const assignment = Array.isArray(order.assignedSellers)
+        ? order.assignedSellers.find((s: any) => s.sellerId?.toString() === sellerId)
+        : null;
+      const hasSellerAssignment = !!assignment;
+
+      // If items don't have sellerId, fall back to assignedSellers.items (productIds)
+      let effectiveItems = sellerItems;
+      if (effectiveItems.length === 0 && assignment?.items?.length) {
+        const assignedProductIds = new Set(assignment.items.map((i: any) => i.toString()));
+        effectiveItems = order.items.filter((item: any) => assignedProductIds.has(item.productId?.toString()));
+      }
+      if (effectiveItems.length === 0 && hasSellerAssignment) {
+        effectiveItems = order.items;
+      }
+      const itemsForTotals = effectiveItems;
+      const grossTotal = itemsForTotals.reduce((sum: number, item: any) => 
         sum + (item.sellerPrice || item.price) * item.quantity, 0
       );
-      const totalCommission = sellerItems.reduce((sum: number, item: any) => 
+      const totalCommission = itemsForTotals.reduce((sum: number, item: any) => 
         sum + (item.commissionAmount || 0), 0
       );
       
       return {
         ...order,
-        items: sellerItems,
+        items: effectiveItems,
         sellerTotal: grossTotal - totalCommission, // Net earnings after commission
         grossTotal,
         totalCommission

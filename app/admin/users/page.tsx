@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 
 export default function AdminUsers() {
@@ -47,7 +47,7 @@ export default function AdminUsers() {
               </table>
               {users.length === 0 && (
                 <div className="text-center py-20">
-                  <div className="text-6xl mb-4">👥</div>
+                  <div className="text-6xl mb-4"></div>
                   <h3 className="text-xl font-semibold text-gray-700 mb-2">No users found</h3>
                   <p className="text-gray-500">Users will appear here once they sign up</p>
                 </div>

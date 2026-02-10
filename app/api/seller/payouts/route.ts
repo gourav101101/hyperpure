@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Payout from '@/models/Payout';
 import Order from '@/models/Order';
+import Seller from '@/models/Seller';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,6 +13,9 @@ export async function GET(req: NextRequest) {
     if (!sellerId) {
       return NextResponse.json({ error: 'Seller ID required' }, { status: 400 });
     }
+    
+    // Get seller bank details
+    const seller = await Seller.findById(sellerId).select('bankDetails').lean();
     
     const payouts = await Payout.find({ sellerId })
       .sort({ createdAt: -1 })
@@ -38,12 +42,29 @@ export async function GET(req: NextRequest) {
       );
     });
     
+    // Calculate summary
+    const totalEarnings = payouts.reduce((sum, p: any) => sum + (p.netPayout || 0), 0);
+    const now = new Date();
+    const thisMonthEarnings = payouts
+      .filter((p: any) => {
+        const date = new Date(p.createdAt);
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, p: any) => sum + (p.netPayout || 0), 0);
+    
     return NextResponse.json({ 
       payouts, 
       pendingPayout: {
         amount: pendingAmount,
         orders: pendingOrders.length,
         weekStart
+      },
+      summary: {
+        pendingAmount,
+        totalEarnings,
+        thisMonthEarnings,
+        totalPayouts: payouts.length,
+        bankDetails: seller?.bankDetails || null
       }
     });
   } catch (error) {

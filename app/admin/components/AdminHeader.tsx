@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { usePathname } from "next/navigation";
 import LiveNotifications from "@/app/components/LiveNotifications";
 
@@ -36,7 +36,7 @@ export default function AdminHeader() {
         <LiveNotifications userType="admin" />
         <div className="text-sm font-medium">Admin User</div>
         <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-          <span className="text-lg">👤</span>
+          <span className="text-lg"></span>
         </div>
       </div>
     </header>

@@ -1,26 +1,26 @@
 "use client";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { clearSellerSession } from "@/app/seller/utils/session";
 
 export default function SellerSidebar() {
   const router = useRouter();
   const pathname = usePathname();
 
   const handleLogout = () => {
-    localStorage.clear();
-    router.push('/register-seller');
+    clearSellerSession();
+    router.push("/register-seller");
   };
 
   const menuItems = [
-    { id: "overview", icon: "📊", label: "Overview", path: "/seller/dashboard" },
-    { id: "products", icon: "📦", label: "Products", path: "/seller/products" },
-    { id: "orders", icon: "📋", label: "Orders", path: "/seller/orders" },
-    { id: "collection", icon: "🚚", label: "Collection Schedule", path: "/seller/collection-schedule" },
-    { id: "analytics", icon: "📈", label: "Analytics", path: "/seller/analytics" },
-    { id: "pricing", icon: "💰", label: "Pricing", path: "/seller/pricing" },
-    { id: "forecast", icon: "🔮", label: "Forecast", path: "/seller/forecast" },
-    { id: "payouts", icon: "💳", label: "Payouts", path: "/seller/payouts" },
-    { id: "settings", icon: "⚙️", label: "Settings", path: "/seller/settings" }
+    { id: "overview", label: "Overview", path: "/seller/dashboard" },
+    { id: "products", label: "Products", path: "/seller/products" },
+    { id: "orders", label: "Orders", path: "/seller/orders" },
+    { id: "collection", label: "Collection Schedule", path: "/seller/collection-schedule" },
+    { id: "analytics", label: "Analytics", path: "/seller/analytics" },
+    { id: "pricing", label: "Pricing", path: "/seller/pricing" },
+    { id: "payouts", label: "Payouts", path: "/seller/payouts" },
+    { id: "settings", label: "Settings", path: "/seller/settings" }
   ];
 
   const isActive = (path: string) => {
@@ -55,7 +55,6 @@ export default function SellerSidebar() {
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
-              <span className="text-xl">{item.icon}</span>
               <span>{item.label}</span>
             </Link>
           ))}
@@ -67,13 +66,9 @@ export default function SellerSidebar() {
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
         >
-          <span className="text-xl">🚪</span>
           <span className="font-medium">Logout</span>
         </button>
       </div>
     </aside>
   );
 }
-
-
-

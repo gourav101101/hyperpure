@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import ConfirmModal from "../components/ConfirmModal";
 
@@ -256,9 +256,9 @@ export default function BlogManagement() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-semibold uppercase text-gray-500">{block.type}</span>
                         <div className="flex gap-2">
-                          <button type="button" onClick={() => moveBlock(block.id, "up")} disabled={idx === 0} className="text-gray-400 hover:text-gray-600 disabled:opacity-30">↑</button>
-                          <button type="button" onClick={() => moveBlock(block.id, "down")} disabled={idx === blocks.length - 1} className="text-gray-400 hover:text-gray-600 disabled:opacity-30">↓</button>
-                          <button type="button" onClick={() => deleteBlock(block.id)} className="text-red-500 hover:text-red-700">🗑️</button>
+                          <button type="button" onClick={() => moveBlock(block.id, "up")} disabled={idx === 0} className="text-gray-400 hover:text-gray-600 disabled:opacity-30"></button>
+                          <button type="button" onClick={() => moveBlock(block.id, "down")} disabled={idx === blocks.length - 1} className="text-gray-400 hover:text-gray-600 disabled:opacity-30"></button>
+                          <button type="button" onClick={() => deleteBlock(block.id)} className="text-red-500 hover:text-red-700"></button>
                         </div>
                       </div>
                       {block.type === "image" ? (
@@ -320,7 +320,7 @@ export default function BlogManagement() {
                           {blog.published ? "Published" : "Draft"}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mb-2">{blog.author} • {blog.date} • {blog.readTime}</p>
+                      <p className="text-xs text-gray-500 mb-2">{blog.author} -  {blog.date} -  {blog.readTime}</p>
                       <p className="text-xs text-gray-500 mb-3">{blog.blocks.length} content blocks</p>
                       <div className="flex gap-2">
                         <button

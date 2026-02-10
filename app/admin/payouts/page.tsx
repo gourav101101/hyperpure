@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -76,6 +76,8 @@ export default function AdminPayouts() {
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
+  const formatAmount = (value: any) => Number(value ?? 0).toFixed(0);
+
   const stats = {
     pending: payouts.filter(p => p.status === 'pending').length,
     processing: payouts.filter(p => p.status === 'processing').length,
@@ -91,7 +93,7 @@ export default function AdminPayouts() {
               disabled={generating}
               className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-bold disabled:bg-gray-400"
             >
-              {generating ? 'Generating...' : '🔄 Generate Payouts'}
+              {generating ? 'Generating...' : 'Generate Payouts'}
             </button>
           </div>
 
@@ -110,7 +112,7 @@ export default function AdminPayouts() {
             </div>
             <div className="bg-white rounded-xl border p-4">
               <p className="text-sm text-gray-600 mb-1">Total Amount</p>
-              <p className="text-2xl font-bold text-gray-900">₹{stats.totalAmount.toFixed(0)}</p>
+              <p className="text-2xl font-bold text-gray-900">Rs. {formatAmount(stats.totalAmount)}</p>
             </div>
           </div>
 
@@ -133,7 +135,6 @@ export default function AdminPayouts() {
               <div className="p-16 text-center text-gray-600">Loading payouts...</div>
             ) : payouts.length === 0 ? (
               <div className="p-16 text-center">
-                <div className="text-6xl mb-4">💳</div>
                 <h3 className="text-xl font-bold mb-2">No payouts found</h3>
                 <p className="text-gray-600">Generate payouts to see them here</p>
               </div>
@@ -152,11 +153,11 @@ export default function AdminPayouts() {
                           </span>
                         </div>
                         <p className="text-sm text-gray-600">
-                          Week {payout.weekNumber} • {new Date(payout.periodStart).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} - {new Date(payout.periodEnd).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          Week {payout.weekNumber} - {new Date(payout.periodStart).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} - {new Date(payout.periodEnd).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-green-600">₹{payout.netPayout.toFixed(0)}</p>
+                        <p className="text-2xl font-bold text-green-600">Rs. {formatAmount(payout.netPayout)}</p>
                         <p className="text-xs text-gray-500">{payout.totalOrders} orders</p>
                       </div>
                     </div>
@@ -164,15 +165,15 @@ export default function AdminPayouts() {
                     <div className="grid grid-cols-3 gap-4 p-3 bg-gray-50 rounded-lg text-sm mb-3">
                       <div>
                         <p className="text-gray-600 text-xs mb-1">Gross Revenue</p>
-                        <p className="font-bold">₹{payout.grossRevenue.toFixed(0)}</p>
+                        <p className="font-bold">Rs. {formatAmount(payout.grossRevenue)}</p>
                       </div>
                       <div>
                         <p className="text-gray-600 text-xs mb-1">Commission</p>
-                        <p className="font-bold text-orange-600">-₹{payout.platformCommission.toFixed(0)}</p>
+                        <p className="font-bold text-orange-600">-Rs. {formatAmount(payout.platformCommission)}</p>
                       </div>
                       <div>
                         <p className="text-gray-600 text-xs mb-1">Net Payout</p>
-                        <p className="font-bold text-green-600">₹{payout.netPayout.toFixed(0)}</p>
+                        <p className="font-bold text-green-600">Rs. {formatAmount(payout.netPayout)}</p>
                       </div>
                     </div>
 
@@ -209,7 +210,6 @@ export default function AdminPayouts() {
                       )}
                       {payout.status === 'completed' && payout.paidAt && (
                         <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <span>✅</span>
                           <span>Paid on {new Date(payout.paidAt).toLocaleDateString('en-IN')}</span>
                           {payout.transactionId && (
                             <span className="text-xs bg-gray-100 px-2 py-1 rounded">TXN: {payout.transactionId}</span>

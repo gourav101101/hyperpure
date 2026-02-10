@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 
 export default function AdminBulkOrders() {
@@ -44,6 +44,8 @@ export default function AdminBulkOrders() {
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
+  const formatAmount = (value: any) => Number(value ?? 0).toFixed(0);
+
   const stats = {
     all: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
@@ -78,62 +80,65 @@ export default function AdminBulkOrders() {
 
       {orders.length === 0 ? (
         <div className="bg-white rounded-xl p-16 text-center border">
-          <div className="text-6xl mb-4">📦</div>
           <h3 className="text-xl font-bold mb-2">No bulk orders yet</h3>
           <p className="text-gray-600">Bulk order requests will appear here</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {orders.map((order) => (
-            <div key={order._id} className="bg-white rounded-xl border p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-bold">{order.businessName}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>
-                      {order.status.replace('_', ' ').toUpperCase()}
-                    </span>
+          {orders.map((order) => {
+            const items = Array.isArray(order.items) ? order.items : [];
+            const displayAmount = formatAmount(order.finalAmount ?? order.totalAmount);
+            return (
+              <div key={order._id} className="bg-white rounded-xl border p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-bold">{order.businessName}</h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>
+                        {order.status.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">{order.businessType} - {order.deliveryFrequency}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Requested: {new Date(order.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600">{order.businessType} • {order.deliveryFrequency}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Requested: {new Date(order.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-blue-600">₹{order.finalAmount?.toFixed(0) || order.totalAmount?.toFixed(0)}</p>
-                  <p className="text-xs text-gray-500">{order.items.length} items</p>
-                </div>
-              </div>
-
-              <div className="mb-4 space-y-2">
-                {order.items.slice(0, 3).map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="text-sm font-medium">{item.name}</span>
-                    <span className="text-sm text-gray-600">{item.quantity} {item.unit}</span>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-600">Rs. {displayAmount}</p>
+                    <p className="text-xs text-gray-500">{items.length} items</p>
                   </div>
-                ))}
-                {order.items.length > 3 && (
-                  <p className="text-xs text-gray-500 text-center">+{order.items.length - 3} more items</p>
-                )}
-              </div>
+                </div>
 
-              <div className="flex gap-2">
-                {order.status === 'pending' && (
-                  <button onClick={() => updateStatus(order._id, 'under_review')} className="flex-1 bg-blue-500 text-white py-2 rounded-lg font-bold hover:bg-blue-600">
-                    Start Review
+                <div className="mb-4 space-y-2">
+                  {items.slice(0, 3).map((item: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="text-sm font-medium">{item.name}</span>
+                      <span className="text-sm text-gray-600">{item.quantity} {item.unit}</span>
+                    </div>
+                  ))}
+                  {items.length > 3 && (
+                    <p className="text-xs text-gray-500 text-center">+{items.length - 3} more items</p>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  {order.status === 'pending' && (
+                    <button onClick={() => updateStatus(order._id, 'under_review')} className="flex-1 bg-blue-500 text-white py-2 rounded-lg font-bold hover:bg-blue-600">
+                      Start Review
+                    </button>
+                  )}
+                  {order.status === 'under_review' && (
+                    <button onClick={() => setSelectedOrder(order)} className="flex-1 bg-purple-500 text-white py-2 rounded-lg font-bold hover:bg-purple-600">
+                      Send Quote
+                    </button>
+                  )}
+                  <button onClick={() => setSelectedOrder(order)} className="px-6 py-2 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">
+                    View Details
                   </button>
-                )}
-                {order.status === 'under_review' && (
-                  <button onClick={() => setSelectedOrder(order)} className="flex-1 bg-purple-500 text-white py-2 rounded-lg font-bold hover:bg-purple-600">
-                    Send Quote
-                  </button>
-                )}
-                <button onClick={() => setSelectedOrder(order)} className="px-6 py-2 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50">
-                  View Details
-                </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -142,7 +147,7 @@ export default function AdminBulkOrders() {
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold">Bulk Order Details</h2>
-              <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+              <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-gray-600 text-2xl">x</button>
             </div>
             <div className="p-6">
               <div className="mb-6">

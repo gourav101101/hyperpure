@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -162,62 +162,71 @@ export default function DeliverySlots() {
       </div>
 
       <div className="grid gap-4">
-        {slots.filter(s => !s.archived).map((slot) => (
-          <div key={slot._id} className="bg-white rounded-xl border p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-xl font-bold">{slot.name}</h3>
-                  {!slot.active && (
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600">INACTIVE</span>
-                  )}
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    slot.archived ? 'bg-gray-100 text-gray-700' : slot.isExpress ? 'bg-orange-100 text-orange-700' : slot.deliveryCharge > 0 ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
-                  }`}>
-                    {slot.archived ? 'Archived' : slot.isExpress ? `Express ₹${slot.deliveryCharge}` : slot.deliveryCharge > 0 ? `₹${slot.deliveryCharge}` : 'FREE'}
-                  </span>
+        {slots.filter(s => !s.archived).map((slot) => {
+          const charge = Number(slot.deliveryCharge ?? 0);
+          const badgeLabel = slot.archived
+            ? 'Archived'
+            : slot.isExpress
+            ? `Express Rs. ${charge}`
+            : charge > 0
+            ? `Rs. ${charge}`
+            : 'FREE';
+          return (
+            <div key={slot._id} className="bg-white rounded-xl border p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-xl font-bold">{slot.name}</h3>
+                    {!slot.active && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600">INACTIVE</span>
+                    )}
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      slot.archived ? 'bg-gray-100 text-gray-700' : slot.isExpress ? 'bg-orange-100 text-orange-700' : charge > 0 ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                    }`}>
+                      {badgeLabel}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {new Date(slot.deliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
                 </div>
-                <p className="text-sm text-gray-600">
-                  {new Date(slot.deliveryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </p>
+                {!slot.archived && (
+                  <div className="flex gap-2">
+                    <button onClick={() => setConfirmModal({show: true, type: slot.active ? 'deactivate' : 'activate', slotId: slot._id, slotName: slot.name})} className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      slot.active ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-green-100 text-green-700 hover:bg-green-200'
+                    }`}>
+                      {slot.active ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button onClick={() => openModal(slot)} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium">
+                      Edit
+                    </button>
+                    <button onClick={() => setConfirmModal({show: true, type: 'delete', slotId: slot._id, slotName: slot.name})} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium">
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
-              {!slot.archived && (
-                <div className="flex gap-2">
-                  <button onClick={() => setConfirmModal({show: true, type: slot.active ? 'deactivate' : 'activate', slotId: slot._id, slotName: slot.name})} className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                    slot.active ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-green-100 text-green-700 hover:bg-green-200'
-                  }`}>
-                    {slot.active ? 'Deactivate' : 'Activate'}
-                  </button>
-                  <button onClick={() => openModal(slot)} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium">
-                    Edit
-                  </button>
-                  <button onClick={() => setConfirmModal({show: true, type: 'delete', slotId: slot._id, slotName: slot.name})} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium">
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
 
-            <div className="bg-green-50 rounded-lg p-4 space-y-2">
-              {slot.isExpress ? (
-                <p className="text-sm font-medium text-orange-700">⚡ Delivery within {slot.expressDeliveryHours || 2} hours</p>
-              ) : (
-                <>
-                  <p className="text-sm font-medium text-green-700">📦 Order by {convertTo12Hour(slot.orderCutoffTime)} for next day delivery</p>
-                  <p className="text-sm font-medium text-green-700">🚚 Delivery: {convertTo12Hour(slot.deliveryStartTime)} - {convertTo12Hour(slot.deliveryEndTime)}</p>
-                </>
-              )}
-              {slot.daysOfWeek && slot.daysOfWeek.length > 0 && (
-                <p className="text-xs text-gray-600">Available: {slot.daysOfWeek.map((d: number) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')}</p>
-              )}
+              <div className="bg-green-50 rounded-lg p-4 space-y-2">
+                {slot.isExpress ? (
+                  <p className="text-sm font-medium text-orange-700">Delivery within {slot.expressDeliveryHours || 2} hours</p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-green-700">Order by {convertTo12Hour(slot.orderCutoffTime)} for next day delivery</p>
+                    <p className="text-sm font-medium text-green-700">Delivery: {convertTo12Hour(slot.deliveryStartTime)} - {convertTo12Hour(slot.deliveryEndTime)}</p>
+                  </>
+                )}
+                {slot.daysOfWeek && slot.daysOfWeek.length > 0 && (
+                  <p className="text-xs text-gray-600">Available: {slot.daysOfWeek.map((d: number) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')}</p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {slots.length === 0 && (
         <div className="text-center py-12 bg-white rounded-xl">
-          <div className="text-6xl mb-4">🚚</div>
           <h3 className="text-xl font-bold mb-2">No delivery slots</h3>
           <p className="text-gray-600 mb-6">Create your first delivery slot</p>
           <button onClick={() => openModal()} className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 font-bold">
@@ -249,7 +258,7 @@ export default function DeliverySlots() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">📅 Available Days</label>
+                  <label className="block text-sm font-medium mb-2">Available Days</label>
                   <div className="grid grid-cols-7 gap-2">
                     {['S','M','T','W','T','F','S'].map((day, idx) => {
                       const isSelected = formData.daysOfWeek.includes(idx);
@@ -276,7 +285,7 @@ export default function DeliverySlots() {
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     {formData.daysOfWeek.length === 0 
-                      ? '✓ Available all days' 
+                      ? 'Available all days' 
                       : `Available: ${formData.daysOfWeek.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')}`
                     }
                   </p>
@@ -285,24 +294,24 @@ export default function DeliverySlots() {
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   {formData.slotType === 'express' ? (
                     <div className="space-y-3">
-                      <h3 className="font-bold text-orange-600">⚡ Express Delivery Settings</h3>
+                      <h3 className="font-bold text-orange-600">Express Delivery Settings</h3>
                       <div className="flex items-center gap-2 bg-orange-100 rounded-lg p-3">
                         <input type="checkbox" checked={formData.express24x7} onChange={(e) => setFormData({...formData, express24x7: e.target.checked})} className="w-5 h-5" />
-                        <label className="font-medium text-sm">🌙 Available 24/7 (ignore delivery window)</label>
+                        <label className="font-medium text-sm">Available 24/7 (ignore delivery window)</label>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2">📦 Order Cutoff Time</label>
+                        <label className="block text-sm font-medium mb-2">Order Cutoff Time</label>
                         <input type="time" required value={formData.orderCutoffTime} onChange={(e) => setFormData({...formData, orderCutoffTime: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
                         <p className="text-xs text-gray-500 mt-1">Last time to accept express orders</p>
                       </div>
                       {!formData.express24x7 && (
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium mb-2">🚀 Delivery Start</label>
+                            <label className="block text-sm font-medium mb-2">Delivery Start</label>
                             <input type="time" required value={formData.deliveryStartTime} onChange={(e) => setFormData({...formData, deliveryStartTime: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium mb-2">🚀 Delivery End</label>
+                            <label className="block text-sm font-medium mb-2">Delivery End</label>
                             <input type="time" required value={formData.deliveryEndTime} onChange={(e) => setFormData({...formData, deliveryEndTime: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
                           </div>
                         </div>
@@ -312,13 +321,13 @@ export default function DeliverySlots() {
                         <input type="number" min="1" max="24" value={formData.expressDeliveryHours} onChange={(e) => setFormData({...formData, expressDeliveryHours: parseInt(e.target.value)})} className="w-full px-4 py-2 border rounded-lg" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2">Delivery Charge (₹)</label>
+                        <label className="block text-sm font-medium mb-2">Delivery Charge (Rs.)</label>
                         <input type="number" min="0" value={formData.deliveryCharge} onChange={(e) => setFormData({...formData, deliveryCharge: parseInt(e.target.value)})} className="w-full px-4 py-2 border rounded-lg" />
                       </div>
                       <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
                           <input type="checkbox" checked={formData.minOrderValue > 0} onChange={(e) => setFormData({...formData, minOrderValue: e.target.checked ? 999 : 0})} className="w-4 h-4" />
-                          <label className="font-medium text-sm">📊 Minimum Order Value</label>
+                          <label className="font-medium text-sm">Minimum Order Value</label>
                         </div>
                         {formData.minOrderValue > 0 && (
                           <input type="number" min="0" value={formData.minOrderValue} onChange={(e) => setFormData({...formData, minOrderValue: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Min cart value" />
@@ -330,20 +339,20 @@ export default function DeliverySlots() {
 
                 {formData.slotType === 'standard' && (
                   <div className="space-y-4">
-                    <h3 className="font-bold text-green-600">🚚 Standard Delivery Settings</h3>
+                    <h3 className="font-bold text-green-600">Standard Delivery Settings</h3>
                     <div>
-                      <label className="block text-sm font-medium mb-2">📦 Order Cutoff Time (for next day delivery)</label>
+                      <label className="block text-sm font-medium mb-2">Order Cutoff Time (for next day delivery)</label>
                       <input type="time" required value={formData.orderCutoffTime} onChange={(e) => setFormData({...formData, orderCutoffTime: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
                       <p className="text-xs text-gray-500 mt-1">Orders placed before this time will be delivered next day</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">🚚 Delivery Start</label>
+                        <label className="block text-sm font-medium mb-2">Delivery Start</label>
                         <input type="time" required value={formData.deliveryStartTime} onChange={(e) => setFormData({...formData, deliveryStartTime: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2">🚚 Delivery End</label>
+                        <label className="block text-sm font-medium mb-2">Delivery End</label>
                         <input type="time" required value={formData.deliveryEndTime} onChange={(e) => setFormData({...formData, deliveryEndTime: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
                       </div>
                     </div>
@@ -351,11 +360,11 @@ export default function DeliverySlots() {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <input type="checkbox" checked={formData.deliveryCharge > 0} onChange={(e) => setFormData({...formData, deliveryCharge: e.target.checked ? 50 : 0})} className="w-5 h-5" />
-                        <label className="font-medium">💵 Add Delivery Charge (Optional)</label>
+                        <label className="font-medium">Add Delivery Charge (Optional)</label>
                       </div>
                       {formData.deliveryCharge > 0 && (
                         <div>
-                          <label className="block text-sm font-medium mb-2">Delivery Charge (₹)</label>
+                          <label className="block text-sm font-medium mb-2">Delivery Charge (Rs.)</label>
                           <input type="number" min="0" value={formData.deliveryCharge} onChange={(e) => setFormData({...formData, deliveryCharge: parseInt(e.target.value)})} className="w-full px-4 py-2 border rounded-lg" />
                           <p className="text-xs text-gray-500 mt-1">Leave at 0 for FREE delivery</p>
                         </div>
@@ -365,11 +374,11 @@ export default function DeliverySlots() {
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <input type="checkbox" checked={formData.minOrderValue > 0} onChange={(e) => setFormData({...formData, minOrderValue: e.target.checked ? 499 : 0})} className="w-5 h-5" />
-                        <label className="font-medium">📊 Minimum Order Value (Optional)</label>
+                        <label className="font-medium">Minimum Order Value (Optional)</label>
                       </div>
                       {formData.minOrderValue > 0 && (
                         <div>
-                          <label className="block text-sm font-medium mb-2">Min Cart Value (₹)</label>
+                          <label className="block text-sm font-medium mb-2">Min Cart Value (Rs.)</label>
                           <input type="number" min="0" value={formData.minOrderValue} onChange={(e) => setFormData({...formData, minOrderValue: parseInt(e.target.value) || 0})} className="w-full px-4 py-2 border rounded-lg" />
                           <p className="text-xs text-gray-500 mt-1">Customers must have this amount in cart to use this slot</p>
                         </div>
@@ -394,7 +403,7 @@ export default function DeliverySlots() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold mb-4">
-              {confirmModal.type === 'delete' ? '🗑️ Delete Slot' : confirmModal.type === 'deactivate' ? '⏸️ Deactivate Slot' : '▶️ Activate Slot'}
+              {confirmModal.type === 'delete' ? 'Delete Slot' : confirmModal.type === 'deactivate' ? 'Deactivate Slot' : 'Activate Slot'}
             </h3>
             <p className="text-gray-600 mb-6">
               {confirmModal.type === 'delete' 

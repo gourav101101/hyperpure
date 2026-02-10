@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import { getSellerSession } from "@/app/seller/utils/session";
 
 export default function SellerAnalytics() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [period, setPeriod] = useState('7');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAnalytics();
@@ -12,15 +14,26 @@ export default function SellerAnalytics() {
 
   const fetchAnalytics = async () => {
     setLoading(true);
-    const sellerId = localStorage.getItem('sellerId');
+    const session = getSellerSession();
+    const sellerId = session.sellerId;
+    if (!sellerId) {
+      setError("Seller session not found. Please log in.");
+      setLoading(false);
+      return;
+    }
     const res = await fetch(`/api/seller/analytics?sellerId=${sellerId}&period=${period}`);
     if (res.ok) {
       const data = await res.json();
       setAnalytics(data);
+    } else {
+      setError("Failed to load analytics.");
     }
     setLoading(false);
   };
 
+  if (error) {
+    return <div className="p-8">{error}</div>;
+  }
   if (loading || !analytics) {
     return <div className="p-8">Loading analytics...</div>;
   }
@@ -53,11 +66,11 @@ export default function SellerAnalytics() {
         </div>
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
           <p className="text-sm opacity-90 mb-1">Total Revenue</p>
-          <p className="text-3xl font-bold">₹{analytics.summary.totalRevenue.toFixed(0)}</p>
+          <p className="text-3xl font-bold">Rs. {analytics.summary.totalRevenue.toFixed(0)}</p>
         </div>
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
           <p className="text-sm opacity-90 mb-1">Avg Order Value</p>
-          <p className="text-3xl font-bold">₹{analytics.summary.avgOrderValue.toFixed(0)}</p>
+          <p className="text-3xl font-bold">Rs. {analytics.summary.avgOrderValue.toFixed(0)}</p>
         </div>
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
           <p className="text-sm opacity-90 mb-1">Active Products</p>
@@ -83,7 +96,7 @@ export default function SellerAnalytics() {
                       className="bg-gradient-to-r from-green-400 to-green-600 h-full rounded-full flex items-center justify-end pr-3"
                       style={{ width: `${(item.revenue / maxRevenue) * 100}%` }}
                     >
-                      <span className="text-xs font-bold text-white">₹{item.revenue.toFixed(0)}</span>
+                      <span className="text-xs font-bold text-white">Rs. {item.revenue.toFixed(0)}</span>
                     </div>
                   </div>
                 </div>
@@ -109,7 +122,7 @@ export default function SellerAnalytics() {
                     <p className="text-xs text-gray-600">{product.quantity} units sold</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-green-600">₹{product.revenue.toFixed(0)}</p>
+                    <p className="font-bold text-green-600">Rs. {product.revenue.toFixed(0)}</p>
                   </div>
                 </div>
               ))}
@@ -122,7 +135,6 @@ export default function SellerAnalytics() {
       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">📈</span>
             <h4 className="font-bold text-gray-900">Growth Tip</h4>
           </div>
           <p className="text-sm text-gray-700">
@@ -134,17 +146,15 @@ export default function SellerAnalytics() {
 
         <div className="bg-green-50 border border-green-200 rounded-xl p-4">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">💰</span>
             <h4 className="font-bold text-gray-900">Revenue Insight</h4>
           </div>
           <p className="text-sm text-gray-700">
-            Your average order value is ₹{analytics.summary.avgOrderValue.toFixed(0)}
+            Your average order value is Rs. {analytics.summary.avgOrderValue.toFixed(0)}
           </p>
         </div>
 
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">🎯</span>
             <h4 className="font-bold text-gray-900">Performance</h4>
           </div>
           <p className="text-sm text-gray-700">

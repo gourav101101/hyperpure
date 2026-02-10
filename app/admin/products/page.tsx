@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import ConfirmModal from "../components/ConfirmModal";
 import { toast } from "sonner";
@@ -299,7 +299,7 @@ export default function ProductsAdmin() {
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mb-4">
-                    <p className="text-sm text-blue-800 font-medium">📝 Note: Sellers will set their own prices for this product</p>
+                    <p className="text-sm text-blue-800 font-medium">Note: Sellers will set their own prices for this product</p>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
@@ -357,11 +357,11 @@ export default function ProductsAdmin() {
                       <div className="flex gap-3">
                         <label className="flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1">
                           <input type="radio" name="vegType" checked={formData.veg} onChange={() => setFormData({...formData, veg: true})} />
-                          <span className="text-sm font-medium text-gray-700">🟢 Veg</span>
+                          <span className="text-sm font-medium text-gray-700">Veg</span>
                         </label>
                         <label className="flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1">
                           <input type="radio" name="vegType" checked={!formData.veg} onChange={() => setFormData({...formData, veg: false})} />
-                          <span className="text-sm font-medium text-gray-700">🔴 Non-Veg</span>
+                          <span className="text-sm font-medium text-gray-700">Non-Veg</span>
                         </label>
                       </div>
                     </div>
@@ -386,7 +386,7 @@ export default function ProductsAdmin() {
                       {uploadedImages.map((url, i) => (
                         <div key={i} className="relative group">
                           <img src={url} alt="" className="w-20 h-20 object-cover rounded-lg" />
-                          <button type="button" onClick={() => removeImage(i)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                          <button type="button" onClick={() => removeImage(i)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs opacity-0 group-hover:opacity-100 transition-opacity">x</button>
                         </div>
                       ))}
                     </div>
@@ -415,7 +415,7 @@ export default function ProductsAdmin() {
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-800 mb-1 line-clamp-2 min-h-[40px]">{prod.name}</h3>
-                  <p className="text-xs text-gray-500 mb-3">{(prod as any).unitType} • {prod.category}</p>
+                  <p className="text-xs text-gray-500 mb-3">{(prod as any).unitType} - {prod.category}</p>
                   
                   {/* Seller Count Badge */}
                   <div className="mb-3">
@@ -452,7 +452,6 @@ export default function ProductsAdmin() {
 
           {filteredProducts.length === 0 && (
             <div className="text-center py-20">
-              <div className="text-6xl mb-4">📦</div>
               <h3 className="text-xl font-semibold text-gray-700 mb-2">No products found</h3>
               <p className="text-gray-500 mb-6">Try adjusting your filters or add a new product</p>
               <button onClick={openAddModal} className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors">
@@ -484,17 +483,17 @@ export default function ProductsAdmin() {
                       </div>
                       <div className="text-right">
                         <div className="text-sm text-gray-600">Customer Pays</div>
-                        <div className="text-2xl font-bold text-blue-600">₹{seller.price}</div>
+                        <div className="text-2xl font-bold text-blue-600">Rs. {seller.price}</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg text-sm">
                       <div>
                         <div className="text-xs text-gray-500 mb-1">Seller Gets</div>
-                        <div className="font-bold text-green-600">₹{seller.sellerPrice}</div>
+                        <div className="font-bold text-green-600">Rs. {seller.sellerPrice}</div>
                       </div>
                       <div>
                         <div className="text-xs text-gray-500 mb-1">Commission</div>
-                        <div className="font-bold text-orange-600">₹{seller.commissionAmount}</div>
+                        <div className="font-bold text-orange-600">Rs. {seller.commissionAmount}</div>
                       </div>
                       <div>
                         <div className="text-xs text-gray-500 mb-1">Stock</div>
@@ -510,14 +509,13 @@ export default function ProductsAdmin() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <div className="text-4xl mb-3">💰</div>
                 <p className="text-gray-600">Loading seller details...</p>
               </div>
             )}
             
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                <span className="font-bold">💡 Note:</span> Prices shown are what customers pay (seller base price + platform commission)
+                <span className="font-bold">Note:</span> Prices shown are what customers pay (seller base price + platform commission)
               </p>
             </div>
           </div>

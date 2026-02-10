@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getSellerSession } from "@/app/seller/utils/session";
 
 export default function SellerPricing() {
   const [insights, setInsights] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInsights();
@@ -12,11 +14,19 @@ export default function SellerPricing() {
 
   const fetchInsights = async () => {
     setLoading(true);
-    const sellerId = localStorage.getItem('sellerId');
+    const session = getSellerSession();
+    const sellerId = session.sellerId;
+    if (!sellerId) {
+      setError("Seller session not found. Please log in.");
+      setLoading(false);
+      return;
+    }
     const res = await fetch(`/api/pricing?sellerId=${sellerId}`);
     if (res.ok) {
       const data = await res.json();
       setInsights(data.insights || []);
+    } else {
+      setError("Failed to load pricing insights.");
     }
     setLoading(false);
   };
@@ -29,13 +39,9 @@ export default function SellerPricing() {
     }[status] || 'bg-gray-100 text-gray-700';
   };
 
-  const getStatusIcon = (status: string) => {
-    return {
-      high: '⬆️',
-      low: '⬇️',
-      good: '✅'
-    }[status] || '📊';
-  };
+  if (error) {
+    return <div className="p-8">{error}</div>;
+  }
 
   if (loading) {
     return <div className="p-8">Loading pricing insights...</div>;
@@ -49,13 +55,12 @@ export default function SellerPricing() {
           <p className="text-sm text-gray-600 mt-1">Compare your prices with competitors</p>
         </div>
         <button onClick={fetchInsights} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium">
-          🔄 Refresh
+          Refresh
         </button>
       </div>
 
       {insights.length === 0 ? (
         <div className="bg-white rounded-xl p-16 text-center border">
-          <div className="text-6xl mb-4">💰</div>
           <h3 className="text-xl font-bold mb-2">No pricing data yet</h3>
           <p className="text-gray-600 mb-6">Add products to see competitive pricing insights</p>
           <Link href="/seller/products" className="inline-block px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-bold">
@@ -71,7 +76,7 @@ export default function SellerPricing() {
                   <h3 className="text-lg font-bold text-gray-900 mb-2">{insight.productName}</h3>
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(insight.status)}`}>
-                      {getStatusIcon(insight.status)} {insight.status.toUpperCase()}
+                      {insight.status.toUpperCase()}
                     </span>
                     <span className="text-sm text-gray-600">
                       Rank #{insight.pricePosition} of {insight.totalSellers} sellers
@@ -80,22 +85,22 @@ export default function SellerPricing() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 mb-1">Your Price</p>
-                  <p className="text-3xl font-bold text-blue-600">₹{insight.myPrice}</p>
+                  <p className="text-3xl font-bold text-blue-600">Rs. {insight.myPrice}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-xs text-gray-600 mb-1">Lowest Price</p>
-                  <p className="text-lg font-bold text-green-600">₹{insight.minPrice}</p>
+                  <p className="text-lg font-bold text-green-600">Rs. {insight.minPrice}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 mb-1">Average Price</p>
-                  <p className="text-lg font-bold text-gray-900">₹{insight.avgPrice}</p>
+                  <p className="text-lg font-bold text-gray-900">Rs. {insight.avgPrice}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 mb-1">Highest Price</p>
-                  <p className="text-lg font-bold text-red-600">₹{insight.maxPrice}</p>
+                  <p className="text-lg font-bold text-red-600">Rs. {insight.maxPrice}</p>
                 </div>
               </div>
 
@@ -105,7 +110,7 @@ export default function SellerPricing() {
                 'bg-green-50 border-green-200'
               }`}>
                 <p className="text-sm font-medium text-gray-900">
-                  💡 {insight.recommendation}
+                   {insight.recommendation}
                 </p>
               </div>
 
@@ -117,7 +122,7 @@ export default function SellerPricing() {
                   href="/seller/products" 
                   className="text-sm font-medium text-blue-600 hover:text-blue-700"
                 >
-                  Update Price →
+                  Update Price
                 </Link>
               </div>
             </div>
@@ -127,15 +132,14 @@ export default function SellerPricing() {
 
       <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
         <div className="flex gap-3">
-          <span className="text-2xl">💡</span>
           <div>
             <h4 className="font-bold text-gray-900 mb-2">Pricing Tips</h4>
             <ul className="text-sm text-gray-700 space-y-1">
-              <li>• Price within 15% of average for best sales</li>
-              <li>• Lower prices = more orders but lower margins</li>
-              <li>• Higher prices = fewer orders but better margins</li>
-              <li>• Monitor competitors and adjust regularly</li>
-              <li>• Premium tier sellers can charge slightly higher</li>
+              <li>- Price within 15% of average for best sales</li>
+              <li>- Lower prices = more orders but lower margins</li>
+              <li>- Higher prices = fewer orders but better margins</li>
+              <li>- Monitor competitors and adjust regularly</li>
+              <li>- Premium tier sellers can charge slightly higher</li>
             </ul>
           </div>
         </div>

@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { setSellerSessionCookies } from "@/app/seller/utils/session";
 
 export default function RegisterSeller() {
   const router = useRouter();
@@ -125,6 +126,7 @@ export default function RegisterSeller() {
         localStorage.setItem('userPhone', phoneNumber);
         localStorage.setItem('userRole', 'seller');
         localStorage.setItem('sellerId', data.seller.id);
+        setSellerSessionCookies(data.seller.id);
         setShowLogin(false);
         showToast('Login successful! Redirecting...', 'success');
         setTimeout(() => router.push('/seller/dashboard'), 1000);

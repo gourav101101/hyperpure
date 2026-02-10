@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 
 export default function AdminCampaigns() {
@@ -75,7 +75,7 @@ export default function AdminCampaigns() {
 
       {campaigns.length === 0 ? (
         <div className="bg-white rounded-xl p-16 text-center border">
-          <div className="text-6xl mb-4">📧</div>
+          <div className="text-6xl mb-4"></div>
           <h3 className="text-xl font-bold mb-2">No campaigns yet</h3>
           <p className="text-gray-600 mb-6">Create your first marketing campaign</p>
           <button onClick={() => setShowCreate(true)} className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-bold">
@@ -147,7 +147,7 @@ export default function AdminCampaigns() {
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-bold">Create Campaign</h2>
-              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-2xl">x</button>
             </div>
             <form onSubmit={createCampaign} className="p-6">
               <div className="space-y-4">
