@@ -11,6 +11,7 @@ const ProductSchema = new mongoose.Schema({
   keyFeatures: [String],
   servingInstructions: [String],
   sku: { type: String, unique: true, sparse: true },
+  isActive: { type: Boolean, default: true },
   
   // Tax Information
   gstRate: { type: Number, default: 0 },

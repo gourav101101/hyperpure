@@ -8,7 +8,7 @@ export async function GET() {
     await dbConnect();
     console.log('Database connected');
     
-    const categories = await Category.find({}).sort({ order: 1 });
+    const categories = await Category.find({ isActive: { $ne: false } }).sort({ order: 1 });
     console.log('Categories found:', categories.length);
     
     return NextResponse.json(categories, {

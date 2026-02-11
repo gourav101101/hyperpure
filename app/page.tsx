@@ -38,17 +38,6 @@ export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fallback categories in case API fails
-  const fallbackCategories = [
-    { _id: '1', name: 'Vegetables', icon: '🥬', order: 1 },
-    { _id: '2', name: 'Fruits', icon: '🍎', order: 2 },
-    { _id: '3', name: 'Dairy', icon: '🥛', order: 3 },
-    { _id: '4', name: 'Meat', icon: '🥩', order: 4 },
-    { _id: '5', name: 'Spices', icon: '🌶️', order: 5 },
-    { _id: '6', name: 'Grains', icon: '🌾', order: 6 },
-    { _id: '7', name: 'Beverages', icon: '🥤', order: 7 }
-  ];
-
   const slides = [
     {
       title: "Makar Sankranti made easy",
@@ -95,16 +84,15 @@ export default function Home() {
       });
       
       if (!res.ok) {
-        setCategoriesError(`API Error: ${res.status}`);
-        setCategories(fallbackCategories);
-        return;
+        throw new Error(`API Error: ${res.status}`);
       }
       
       const data = await res.json();
-      setCategories(Array.isArray(data) && data.length > 0 ? data : fallbackCategories);
-    } catch (error) {
-      setCategoriesError('Network error');
-      setCategories(fallbackCategories);
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error: any) {
+      console.error('Categories fetch error:', error);
+      setCategoriesError(error.message || 'Failed to load categories');
+      setCategories([]);
     } finally {
       setCategoriesLoading(false);
     }
@@ -224,22 +212,27 @@ export default function Home() {
               
               {categoriesLoading ? (
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 md:gap-6">
-                  {[...Array(14)].map((_, i) => (
+                  {[...Array(7)].map((_, i) => (
                     <div key={i} className="bg-gray-100 rounded-2xl md:rounded-3xl p-2 md:p-4 animate-pulse">
                       <div className="w-16 h-16 md:w-24 md:h-24 bg-gray-200 rounded-xl md:rounded-2xl mx-auto mb-2 md:mb-4"></div>
                       <div className="h-3 md:h-4 bg-gray-200 rounded mx-auto w-3/4"></div>
                     </div>
                   ))}
                 </div>
+              ) : categoriesError ? (
+                <div className="text-center py-12">
+                  <p className="text-red-600 mb-4">{categoriesError}</p>
+                  <button onClick={fetchCategories} className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                    Retry
+                  </button>
+                </div>
+              ) : categories.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No categories available</p>
+                </div>
               ) : (
-                <>
-                  {categoriesError && (
-                    <div className="mb-4 p-2 bg-orange-50 border border-orange-200 rounded-lg">
-                      <p className="text-xs text-orange-700">⚠️ {categoriesError} - showing backup categories</p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 md:gap-6">
-                    {categories.map((cat) => (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 md:gap-6">
+                    {categories.filter(cat => cat.isActive !== false).map((cat) => (
                       <a
                         key={cat._id}
                         href={`/catalogue?category=${encodeURIComponent(cat.name)}`}
@@ -256,7 +249,6 @@ export default function Home() {
                       </a>
                     ))}
                   </div>
-                </>
               )}
             </div>
 

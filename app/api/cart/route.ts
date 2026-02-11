@@ -92,8 +92,9 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json({ cart: enriched.filter(Boolean) });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch cart' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Cart API error:', error);
+    return NextResponse.json({ error: 'Failed to fetch cart', details: error.message }, { status: 500 });
   }
 }
 

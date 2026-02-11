@@ -3,9 +3,14 @@ import connectDB from '../../../lib/mongodb';
 import Location from '../../../models/Location';
 
 export async function GET(req: NextRequest) {
-  await connectDB();
-  const locations = await Location.find({ active: true }).sort({ city: 1 });
-  return NextResponse.json(locations);
+  try {
+    await connectDB();
+    const locations = await Location.find({ active: true }).sort({ city: 1 });
+    return NextResponse.json(locations);
+  } catch (error: any) {
+    console.error('Locations API error:', error);
+    return NextResponse.json({ error: 'Failed to fetch locations', details: error.message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {

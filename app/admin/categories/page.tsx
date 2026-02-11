@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -8,35 +8,29 @@ interface Category {
   name: string;
   icon: string;
   order: number;
-  subcategories: { name: string; icon?: string }[];
+  isActive?: boolean;
+  subcategories: any[];
 }
 
-export default function CategoriesAdmin() {
+export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
-  const [subcategories, setSubcategories] = useState<{name: string; icon: string}[]>([]);
-  const [subcategoryInput, setSubcategoryInput] = useState("");
-  const [subcategoryIcon, setSubcategoryIcon] = useState("");
-  const [uploadingSubIcon, setUploadingSubIcon] = useState(false);
-  const [oldIcon, setOldIcon] = useState("");
   const [uploading, setUploading] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{show: boolean, type: string, data: any}>({show: false, type: '', data: null});
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
   const fetchCategories = async () => {
-    const res = await fetch('/api/categories');
+    const res = await fetch('/api/admin/categories');
     const data = await res.json();
-    const categories = Array.isArray(data) ? data : [];
-    setCategories(categories);
+    setCategories(Array.isArray(data) ? data : []);
   };
-
-
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,60 +50,27 @@ export default function CategoriesAdmin() {
     setUploading(false);
   };
 
-  const handleSubcategoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setUploadingSubIcon(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    });
-    
-    const data = await res.json();
-    if (data.url) setSubcategoryIcon(data.url);
-    setUploadingSubIcon(false);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editId) {
-        // Delete old image from Cloudinary if a new one was uploaded
-        if (oldIcon && icon !== oldIcon && oldIcon.includes('cloudinary')) {
-          const publicId = oldIcon.split('/').pop()?.split('.')[0];
-          if (publicId) {
-            await fetch('/api/upload', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ publicId: `hyperpure/${publicId}` })
-            });
-          }
-        }
-        await fetch('/api/categories', {
+        await fetch('/api/admin/categories', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editId, name, icon, subcategories })
+          body: JSON.stringify({ id: editId, name, icon })
         });
-        toast.success('Category updated successfully!');
-        setEditId(null);
+        toast.success('Category updated successfully');
       } else {
-        await fetch('/api/categories', {
+        await fetch('/api/admin/categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, icon, order: categories.length, subcategories })
+          body: JSON.stringify({ name, icon, order: categories.length, subcategories: [], isActive: true })
         });
-        toast.success('Category added successfully!');
+        toast.success('Category added successfully');
       }
       setName("");
       setIcon("");
-      setOldIcon("");
-      setSubcategories([]);
-      setSubcategoryInput("");
-      setSubcategoryIcon("");
+      setEditId(null);
       setShowModal(false);
       fetchCategories();
     } catch (error) {
@@ -117,216 +78,303 @@ export default function CategoriesAdmin() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
-      toast.success('Category deleted successfully!');
-      setDeleteId(null);
-      fetchCategories();
-    } catch (error) {
-      toast.error('Failed to delete category');
-    }
-  };
-
-  const handleEdit = (cat: any) => {
+  const handleEdit = (cat: Category) => {
     setName(cat.name);
     setIcon(cat.icon);
-    setOldIcon(cat.icon);
-    setSubcategories(cat.subcategories || []);
-    setEditId(cat._id || cat.id);
+    setEditId(cat._id || cat.id || null);
     setShowModal(true);
   };
 
-  const openAddModal = () => {
-    setName("");
-    setIcon("");
-    setOldIcon("");
-    setSubcategories([]);
-    setSubcategoryInput("");
-    setSubcategoryIcon("");
-    setEditId(null);
-    setShowModal(true);
+  const handleConfirm = async () => {
+    const { type, data } = confirmModal;
+    
+    try {
+      if (type === 'toggleCategory') {
+        await fetch('/api/admin/categories', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: data.id, isActive: !data.currentStatus })
+        });
+        toast.success(`Category ${!data.currentStatus ? 'enabled' : 'disabled'}`);
+        fetchCategories();
+      } else if (type === 'deleteCategory') {
+        await fetch(`/api/admin/categories?id=${data.id}`, { method: 'DELETE' });
+        toast.success('Category deleted successfully');
+        fetchCategories();
+      } else if (type === 'reorder') {
+        const items = [...categories];
+        const [removed] = items.splice(data.fromIndex, 1);
+        items.splice(data.toIndex, 0, removed);
+        
+        const reordered = items.map((cat, idx) => ({ ...cat, order: idx }));
+        setCategories(reordered);
+        
+        await Promise.all(
+          reordered.map(cat =>
+            fetch('/api/admin/categories', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: cat._id || cat.id, order: cat.order })
+            })
+          )
+        );
+        toast.success('Order updated successfully');
+      }
+    } catch (error) {
+      toast.error('Operation failed');
+    }
+    
+    setConfirmModal({show: false, type: '', data: null});
   };
+
+  const filteredCategories = categories.filter(cat => 
+    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <>
-          <div className="flex items-center justify-end mb-6">
-            <button onClick={openAddModal} className="bg-red-500 text-white px-5 py-2.5 rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center gap-2">
-              <span>+</span> Add Category
-            </button>
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
+        <p className="text-gray-600 mt-1">Manage your product categories</p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="text-2xl font-bold text-gray-900">{categories.length}</div>
+          <div className="text-sm text-gray-600">Total Categories</div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="text-2xl font-bold text-green-600">{categories.filter(c => c.isActive !== false).length}</div>
+          <div className="text-sm text-gray-600">Active</div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="text-2xl font-bold text-gray-600">{categories.filter(c => c.isActive === false).length}</div>
+          <div className="text-sm text-gray-600">Inactive</div>
+        </div>
+      </div>
+
+      {/* Actions Bar */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
+        <div className="flex items-center gap-4">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="Search categories..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            />
+            <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
+          <button 
+            onClick={() => { setName(""); setIcon(""); setEditId(null); setShowModal(true); }}
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Category
+          </button>
+        </div>
+      </div>
 
-          {/* Modal */}
-          {showModal && (
-            <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
-              <div className="bg-white rounded-2xl p-6 w-full max-w-4xl shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">{editId ? 'Edit Category' : 'Add New Category'}</h2>
-                  <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                </div>
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-2 gap-6">
-                    {/* Left Column */}
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
-                        <input
-                          type="text"
-                          placeholder="e.g., Fruits & Vegetables"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Category Image</label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-                          disabled={uploading}
-                        />
-                        {uploading && <p className="text-sm text-blue-500 mt-2">Uploading...</p>}
-                        {icon && (
-                          <div className="mt-3">
-                            {(icon.startsWith && (icon.startsWith('http') || icon.startsWith('data:')))
-                              || (icon.includes && icon.includes('/')) ? (
-                              <img src={icon} alt="Category" className="w-24 h-24 object-cover rounded-lg" />
-                            ) : (
-                              <div className="w-24 h-24 flex items-center justify-center text-4xl rounded-lg bg-gray-100">{icon}</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right Column - Subcategories */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Subcategories</label>
-                      <div className="space-y-2 mb-3">
-                        <input
-                          type="text"
-                          placeholder="Subcategory name"
-                          value={subcategoryInput}
-                          onChange={(e) => setSubcategoryInput(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleSubcategoryImageUpload}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          disabled={uploadingSubIcon}
-                        />
-                        {uploadingSubIcon && <p className="text-xs text-blue-500">Uploading...</p>}
-                        {subcategoryIcon && <img src={subcategoryIcon} alt="Sub" className="w-12 h-12 object-cover rounded" />}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (subcategoryInput.trim() && subcategoryIcon) {
-                              setSubcategories([...subcategories, { name: subcategoryInput.trim(), icon: subcategoryIcon }]);
-                              setSubcategoryInput("");
-                              setSubcategoryIcon("");
-                            }
-                          }}
-                          className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
-                          disabled={!subcategoryInput.trim() || !subcategoryIcon}
-                        >
-                          Add Subcategory
-                        </button>
-                      </div>
-                      <div className="max-h-[300px] overflow-y-auto space-y-2">
-                        {subcategories.map((sub, idx) => (
-                          <div key={idx} className="bg-gray-50 px-3 py-2 rounded-lg flex items-center gap-2">
-                            {sub.icon && <img src={sub.icon} alt={sub.name} className="w-8 h-8 object-cover rounded" />}
-                            <span className="text-sm flex-1">{sub.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => setSubcategories(subcategories.filter((_, i) => i !== idx))}
-                              className="text-red-500 hover:text-red-700 text-lg"
-                            >
-                              x
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 pt-4 mt-4 border-t">
-                    <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                      Cancel
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-20">Rank</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Category</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Subcategories</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-32">Status</th>
+              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase w-48">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {filteredCategories.map((cat, index) => (
+              <tr key={cat.id || cat._id} className={`hover:bg-gray-50 transition-colors ${cat.isActive === false ? 'bg-gray-100 opacity-60' : ''}`}>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => index > 0 && setConfirmModal({show: true, type: 'reorder', data: {fromIndex: index, toIndex: index - 1}})}
+                      disabled={index === 0}
+                      className="text-gray-400 hover:text-gray-700 disabled:opacity-20"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                      </svg>
                     </button>
-                    <button type="submit" className="flex-1 bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600" disabled={uploading || !icon}>
-                      {editId ? 'Update' : 'Add'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Categories Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {categories.map((cat) => (
-              <div key={cat.id || cat._id} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-gray-100">
-                <div className="p-4 text-center">
-                  <div className="mb-3">
-                    {cat.icon && ((cat.icon.startsWith && (cat.icon.startsWith('http') || cat.icon.startsWith('data:'))) || (cat.icon.includes && cat.icon.includes('/'))) ? (
-                      <img src={cat.icon} alt={cat.name} className="w-16 h-16 mx-auto object-cover rounded-lg" />
-                    ) : (
-                      <div className="w-16 h-16 flex items-center justify-center text-3xl rounded-lg bg-gray-100 mx-auto">{cat.icon || ''}</div>
-                    )}
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-1">{cat.name}</h3>
-                  {cat.subcategories && cat.subcategories.length > 0 && (
-                    <p className="text-xs text-gray-500 mb-4">{cat.subcategories.length} subcategories</p>
-                  )}
-                  <div className="flex gap-2">
-                    <button onClick={() => handleEdit(cat)} className="flex-1 px-3 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium">
-                      Edit
-                    </button>
-                    <button onClick={() => setDeleteId(cat._id || cat.id || null)} className="w-9 h-9 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <div className="text-center font-bold text-gray-900">{index + 1}</div>
+                    <button
+                      onClick={() => index < filteredCategories.length - 1 && setConfirmModal({show: true, type: 'reorder', data: {fromIndex: index, toIndex: index + 1}})}
+                      disabled={index === filteredCategories.length - 1}
+                      className="text-gray-400 hover:text-gray-700 disabled:opacity-20"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
                   </div>
-                </div>
-              </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    {cat.icon && ((cat.icon.startsWith && (cat.icon.startsWith('http') || cat.icon.startsWith('data:'))) || (cat.icon.includes && cat.icon.includes('/'))) ? (
+                      <img src={cat.icon} alt={cat.name} className="w-12 h-12 object-cover rounded-lg" />
+                    ) : (
+                      <div className="w-12 h-12 flex items-center justify-center text-2xl rounded-lg bg-gray-100">{cat.icon || ''}</div>
+                    )}
+                    <div>
+                      <div className="font-medium text-gray-900">{cat.name}</div>
+                      {cat.isActive === false && <span className="text-xs text-red-600 font-medium">DISABLED</span>}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="text-sm text-gray-600">{cat.subcategories?.length || 0} items</span>
+                </td>
+                <td className="px-6 py-4">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cat.isActive !== false}
+                      onChange={() => setConfirmModal({show: true, type: 'toggleCategory', data: {id: cat._id || cat.id, currentStatus: cat.isActive !== false}})}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                  </label>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => handleEdit(cat)}
+                      className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setConfirmModal({show: true, type: 'deleteCategory', data: {id: cat._id || cat.id}})}
+                      className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
             ))}
-          </div>
+          </tbody>
+        </table>
 
-          {categories.length === 0 && (
-            <div className="text-center py-20">
-              <div className="text-6xl mb-4"></div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">No categories yet</h3>
-              <p className="text-gray-500 mb-6">Start by adding your first category</p>
-              <button onClick={openAddModal} className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors">
-                Add First Category
+        {filteredCategories.length === 0 && (
+          <div className="text-center py-12">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No categories found</h3>
+            <p className="mt-1 text-sm text-gray-500">Get started by creating a new category.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">{editId ? 'Edit Category' : 'Add Category'}</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
-          )}
 
-          {/* Delete Confirmation Modal */}
-          {deleteId && (
-            <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50" onClick={() => setDeleteId(null)}>
-              <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold mb-4">Delete Category?</h2>
-                <p className="text-gray-600 mb-6">Are you sure you want to delete this category? This action cannot be undone.</p>
-                <div className="flex gap-3">
-                  <button onClick={() => setDeleteId(null)} className="flex-1 px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                    Cancel
-                  </button>
-                  <button onClick={() => handleDelete(deleteId)} className="flex-1 bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition-colors">
-                    Delete
-                  </button>
-                </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category Name *</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="e.g., Fruits & Vegetables"
+                  required
+                />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category Image *</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  disabled={uploading}
+                />
+                {uploading && <p className="text-sm text-blue-600 mt-1">Uploading...</p>}
+                {icon && (
+                  <img src={icon} alt="Preview" className="mt-3 w-24 h-24 object-cover rounded-lg border border-gray-200" />
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50"
+                  disabled={uploading || !icon}
+                >
+                  {editId ? 'Update' : 'Add'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirm Action</h3>
+              <p className="text-sm text-gray-600">
+                {confirmModal.type === 'deleteCategory' && 'Are you sure you want to delete this category?'}
+                {confirmModal.type === 'toggleCategory' && `Are you sure you want to ${confirmModal.data?.currentStatus ? 'disable' : 'enable'} this category?`}
+                {confirmModal.type === 'reorder' && 'Are you sure you want to change the category order?'}
+              </p>
             </div>
-          )}
-    </>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmModal({show: false, type: '', data: null})}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

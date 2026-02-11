@@ -19,6 +19,7 @@ function CatalogueContent() {
   const [productPrices, setProductPrices] = useState<any>({});
   const [loadingPrices, setLoadingPrices] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [selectedTopCategory, setSelectedTopCategory] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const categoryRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
@@ -36,8 +37,21 @@ function CatalogueContent() {
       setSelectedTopCategory(cat);
       setSelectedCategory(subcat || "All");
     }
-    fetchData();
   }, [searchParams]);
+
+  const handleCategoryChange = (categoryName: string, subcategoryName?: string) => {
+    setLoadingProducts(true);
+    setSelectedTopCategory(categoryName);
+    setSelectedCategory(subcategoryName || "All");
+    
+    if (subcategoryName && subcategoryName !== "All") {
+      router.push(`/catalogue?category=${encodeURIComponent(categoryName)}&subcategory=${encodeURIComponent(subcategoryName)}`, { scroll: false });
+    } else {
+      router.push(`/catalogue?category=${encodeURIComponent(categoryName)}`, { scroll: false });
+    }
+    
+    setTimeout(() => setLoadingProducts(false), 300);
+  };
 
   useEffect(() => {
     if (selectedTopCategory && categories.length > 0 && scrollContainerRef.current) {
@@ -110,7 +124,10 @@ function CatalogueContent() {
   };
 
   const currentCategory = categories.find(c => c.name === selectedTopCategory);
-  const subcategories = [{ name: "All", icon: "🔲" }, ...(currentCategory?.subcategories || [])];
+  const subcategories = [
+    { name: "All", icon: "🔲" }, 
+    ...(currentCategory?.subcategories?.filter((sub: any) => sub.isActive !== false) || [])
+  ];
   
   const filteredProducts = products.filter(p => {
     if (p.category !== selectedTopCategory) return false;
@@ -141,10 +158,7 @@ function CatalogueContent() {
                 <button
                   key={cat._id}
                   ref={(el) => { categoryRefs.current[cat.name] = el; }}
-                  onClick={() => {
-                    setSelectedTopCategory(cat.name);
-                    router.push(`/catalogue?category=${encodeURIComponent(cat.name)}`);
-                  }}
+                  onClick={() => handleCategoryChange(cat.name)}
                   className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg whitespace-nowrap font-semibold transition-colors flex-shrink-0 text-sm md:text-base ${
                     selectedTopCategory === cat.name ? "text-black" : "text-gray-500 hover:text-gray-700"
                   }`}
@@ -173,14 +187,7 @@ function CatalogueContent() {
                 {subcategories.map((sub: any, idx: number) => (
                   <button
                     key={idx}
-                    onClick={() => {
-                      setSelectedCategory(sub.name);
-                      if (sub.name === "All") {
-                        router.push(`/catalogue?category=${encodeURIComponent(selectedTopCategory)}`);
-                      } else {
-                        router.push(`/catalogue?category=${encodeURIComponent(selectedTopCategory)}&subcategory=${encodeURIComponent(sub.name)}`);
-                      }
-                    }}
+                    onClick={() => handleCategoryChange(selectedTopCategory, sub.name === "All" ? undefined : sub.name)}
                     className={`w-full flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl mb-2 transition-all text-sm md:text-base ${
                       selectedCategory === sub.name ? "bg-red-50 border-l-4 border-red-500" : "hover:bg-gray-50"
                     }`}
@@ -198,7 +205,20 @@ function CatalogueContent() {
             </aside>
 
             <div className="flex-1">
-              {loadingPrices ? (
+              {loadingProducts ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 mb-12">
+                  {Array.from({length: 8}).map((_, i) => (
+                    <div key={i} className="bg-white rounded-lg md:rounded-2xl overflow-hidden border border-gray-100 animate-pulse">
+                      <div className="h-32 md:h-48 bg-gray-200"></div>
+                      <div className="p-2 md:p-4">
+                        <div className="h-3 md:h-4 bg-gray-200 rounded mb-1 md:mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-3/4 mb-1 md:mb-2"></div>
+                        <div className="h-4 md:h-6 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : loadingPrices ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 mb-12">
                   {Array.from({length: 8}).map((_, i) => (
                     <div key={i} className="bg-white rounded-lg md:rounded-2xl overflow-hidden border border-gray-100 animate-pulse">
