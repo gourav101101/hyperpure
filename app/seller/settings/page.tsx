@@ -79,7 +79,9 @@ export default function SellerSettings() {
       });
       if (res.ok) {
         const data = await res.json();
-        setDashboardData(prev => ({ ...prev, seller: data.seller }));
+        if (dashboardData && data.seller) {
+          setDashboardData({ ...dashboardData, seller: data.seller });
+        }
         setEditMode(false);
         setSuccessMessage('Settings updated successfully!');
         setTimeout(() => setSuccessMessage(null), 3000);
@@ -133,7 +135,9 @@ export default function SellerSettings() {
       });
       if (res.ok) {
         const data = await res.json();
-        setDashboardData(prev => ({ ...prev, seller: data.seller }));
+        if (dashboardData && data.seller) {
+          setDashboardData({ ...dashboardData, seller: data.seller });
+        }
         setEditBankMode(false);
         setSuccessMessage('Bank details updated successfully!');
         setTimeout(() => setSuccessMessage(null), 3000);

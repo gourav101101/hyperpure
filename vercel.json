@@ -4,5 +4,10 @@
       "path": "/api/cron/payouts",
       "schedule": "0 0 * * 1"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/upload/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

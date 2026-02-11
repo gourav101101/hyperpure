@@ -110,21 +110,47 @@ export default function ProductsAdmin() {
     setUploading(true);
     const urls: string[] = [];
     
-    for (let i = 0; i < files.length; i++) {
-      const formData = new FormData();
-      formData.append('file', files[i]);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name} is too large. Maximum size is 10MB.`);
+          continue;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!res.ok) {
+          const errorData = await res.json();
+          console.error('Upload error:', errorData);
+          toast.error(`Failed to upload ${file.name}: ${errorData.error || 'Unknown error'}`);
+          continue;
+        }
+        
+        const data = await res.json();
+        if (data.url) {
+          urls.push(data.url);
+        }
+      }
       
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-      
-      const data = await res.json();
-      if (data.url) urls.push(data.url);
+      if (urls.length > 0) {
+        setUploadedImages([...uploadedImages, ...urls]);
+        toast.success(`${urls.length} image(s) uploaded successfully`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload images. Please try again.');
+    } finally {
+      setUploading(false);
     }
-    
-    setUploadedImages([...uploadedImages, ...urls]);
-    setUploading(false);
   };
 
   const removeImage = (index: number) => {
