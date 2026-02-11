@@ -34,11 +34,11 @@ Image uploads work on localhost but fail with 500 error on Vercel production (ht
 Go to your Vercel project settings and add these environment variables:
 
 ```
-CLOUDINARY_CLOUD_NAME=dyccaj0ib
-CLOUDINARY_API_KEY=684192448149375
-CLOUDINARY_API_SECRET=z3ldeqSgG_R8Fs6uTujZdPczJNY
-MONGODB_URI=mongodb+srv://gourav101101:gourav%40123@hyperpure.nvlwauc.mongodb.net/hyperpure?retryWrites=true&w=majority
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=dyccaj0ib
+CLOUDINARY_CLOUD_NAME=<YOUR_CLOUD_NAME>
+CLOUDINARY_API_KEY=<YOUR_API_KEY>
+CLOUDINARY_API_SECRET=<YOUR_API_SECRET>
+MONGODB_URI=<YOUR_MONGODB_URI>
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=<YOUR_CLOUD_NAME>
 ```
 
 **How to add:**

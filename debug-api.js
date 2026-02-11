@@ -4,13 +4,11 @@ require('dotenv').config({ path: '.env.local' });
 async function debugAPI() {
   console.log('=== API DEBUG ANALYSIS ===\n');
   
-  // 1. Check environment variables
   console.log('1. Environment Variables:');
   console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
   console.log('URI format:', process.env.MONGODB_URI ? 'mongodb+srv://***' : 'Missing');
   console.log();
   
-  // 2. Test direct MongoDB connection
   console.log('2. Testing MongoDB Connection:');
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
@@ -19,12 +17,10 @@ async function debugAPI() {
     });
     console.log('✅ MongoDB connected successfully');
     
-    // Test database operations
     const db = mongoose.connection.db;
     const collections = await db.listCollections().toArray();
     console.log('Collections:', collections.map(c => c.name));
     
-    // Test Category model
     const CategorySchema = new mongoose.Schema({
       name: String,
       icon: String,
@@ -55,7 +51,6 @@ async function debugAPI() {
     }
   }
   
-  // 3. Test Next.js API route directly
   console.log('\n3. Testing Next.js API Route:');
   try {
     const response = await fetch('http://localhost:3001/api/categories');

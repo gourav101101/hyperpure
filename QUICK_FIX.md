@@ -9,11 +9,11 @@
 **Add these 5 variables:**
 
 ```
-CLOUDINARY_CLOUD_NAME = dyccaj0ib
-CLOUDINARY_API_KEY = 684192448149375
-CLOUDINARY_API_SECRET = z3ldeqSgG_R8Fs6uTujZdPczJNY
-MONGODB_URI = mongodb+srv://gourav101101:gourav%40123@hyperpure.nvlwauc.mongodb.net/hyperpure?retryWrites=true&w=majority
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = dyccaj0ib
+CLOUDINARY_CLOUD_NAME = <CLOUD_NAME>
+CLOUDINARY_API_KEY = <API_KEY>
+CLOUDINARY_API_SECRET = <API_SECRET>
+MONGODB_URI = <MONGODB_URI>
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = <CLOUD_NAME>
 ```
 
 ✅ Select: Production, Preview, Development (all three)
