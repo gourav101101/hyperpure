@@ -1,7 +1,11 @@
 import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema({
-  phoneNumber: { type: String, required: true, unique: true },
+  email: { type: String, sparse: true, unique: true },
+  name: { type: String },
+  phoneNumber: { type: String, sparse: true, unique: true },
+  password: { type: String },
+  role: { type: String, enum: ['buyer', 'seller', 'admin'], default: 'buyer' },
   createdAt: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: Date.now },
   orderCount: { type: Number, default: 0 },

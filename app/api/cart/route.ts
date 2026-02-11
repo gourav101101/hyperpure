@@ -10,7 +10,7 @@ async function findUser(userId: string) {
   if (mongoose.Types.ObjectId.isValid(userId)) {
     return User.findById(userId);
   }
-  return User.findOne({ phoneNumber: userId });
+  return User.findOne({ $or: [{ phoneNumber: userId }, { email: userId }] });
 }
 
 function normalizeProductId(productId: any) {

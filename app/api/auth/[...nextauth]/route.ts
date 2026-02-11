@@ -1,11 +1,16 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 
 export const authOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -39,6 +44,21 @@ export const authOptions = {
     strategy: "jwt" as const,
   },
   callbacks: {
+    async signIn({ user, account }: any) {
+      if (account?.provider === "google") {
+        await dbConnect();
+        const existingUser = await User.findOne({ email: user.email });
+        
+        if (!existingUser) {
+          await User.create({
+            email: user.email,
+            name: user.name,
+            role: "buyer"
+          });
+        }
+      }
+      return true;
+    },
     async jwt({ token, user }: any) {
       if (user) {
         token.id = user.id;

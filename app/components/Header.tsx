@@ -1,12 +1,13 @@
 "use client";
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useCart } from "../context/CartContext";
 import LogoutModal from "./LogoutModal";
 import LoginModal from "./LoginModal";
 import LiveNotifications from "./LiveNotifications";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
-import { logout } from "../store/authSlice";
+import { login, logout } from "../store/authSlice";
 import { clearCart } from "../store/cartSlice";
 import { clearCheckout } from "../store/checkoutSlice";
 import { setSelectedLocation, setAvailableLocations, setShowLocationModal, dismissLocationModal } from "../store/locationSlice";
@@ -21,6 +22,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { data: session } = useSession();
   const isCatalogue = !!pathname && pathname.startsWith("/catalogue");
   const { totalItems, cartAnimation } = useCart();
   const { isLoggedIn, userId, userPhone, userName } = useAppSelector((state) => state.auth);
@@ -53,6 +55,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
 
   React.useEffect(() => {
     setIsMounted(true);
+    
     if (typeof window !== 'undefined') {
       const storedLocation = localStorage.getItem('selectedLocation');
       if (storedLocation) {
@@ -107,7 +110,18 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
     dispatch(setShowLoginModal(true));
   };
 
-  const actualIsLoggedIn = isLoggedInProp !== undefined ? isLoggedInProp : (isMounted ? isLoggedIn : false);
+  // Sync NextAuth session with Redux
+  React.useEffect(() => {
+    if (session?.user && isMounted) {
+      dispatch(login({ 
+        userId: session.user.email || '',
+        userPhone: session.user.email || '', 
+        userName: session.user.name || 'User' 
+      }));
+    }
+  }, [session, isMounted, dispatch]);
+
+  const actualIsLoggedIn = isLoggedInProp !== undefined ? isLoggedInProp : (isMounted ? (isLoggedIn || !!session) : false);
 
   const fetchLocations = async () => {
     try {

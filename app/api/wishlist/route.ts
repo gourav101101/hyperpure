@@ -5,6 +5,13 @@ import User from '@/models/User';
 import SellerProduct from '@/models/SellerProduct';
 import Commission from '@/models/Commission';
 
+async function findUser(userId: string) {
+  if (mongoose.Types.ObjectId.isValid(userId)) {
+    return User.findById(userId);
+  }
+  return User.findOne({ $or: [{ phoneNumber: userId }, { email: userId }] });
+}
+
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
@@ -13,16 +20,13 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
-    let user = null;
-    if (mongoose.Types.ObjectId.isValid(userId)) {
-      user = await User.findById(userId).populate('wishlist');
-    } else {
-      user = await User.findOne({ phoneNumber: userId }).populate('wishlist');
-    }
+    
+    const user = await findUser(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    await user.populate('wishlist');
     const commission = await Commission.findOne({ isActive: true }) || { commissionRate: 10 };
     const wishlistProducts = (user?.wishlist || []).map((p: any) => (typeof p?.toObject === 'function' ? p.toObject() : p));
 
@@ -69,12 +73,8 @@ export async function POST(req: NextRequest) {
     if (!userId || !productId) {
       return NextResponse.json({ error: 'User ID and product ID required' }, { status: 400 });
     }
-    let user = null;
-    if (mongoose.Types.ObjectId.isValid(userId)) {
-      user = await User.findById(userId);
-    } else {
-      user = await User.findOne({ phoneNumber: userId });
-    }
+    
+    const user = await findUser(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -98,12 +98,8 @@ export async function DELETE(req: NextRequest) {
     if (!userId || !productId) {
       return NextResponse.json({ error: 'User ID and product ID required' }, { status: 400 });
     }
-    let user = null;
-    if (mongoose.Types.ObjectId.isValid(userId)) {
-      user = await User.findById(userId);
-    } else {
-      user = await User.findOne({ phoneNumber: userId });
-    }
+    
+    const user = await findUser(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }

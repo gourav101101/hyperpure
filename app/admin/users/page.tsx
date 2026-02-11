@@ -23,7 +23,7 @@ export default function AdminUsers() {
 
   const filteredUsers = users
     .filter(user => {
-      const matchesSearch = user.phoneNumber.includes(searchTerm);
+      const matchesSearch = (user.phoneNumber || user.email || '').toLowerCase().includes(searchTerm.toLowerCase());
       if (filterActive === 'active') return matchesSearch && user.orderCount > 0;
       if (filterActive === 'inactive') return matchesSearch && user.orderCount === 0;
       return matchesSearch;
@@ -95,7 +95,7 @@ export default function AdminUsers() {
         <div className="flex flex-wrap gap-4">
           <input
             type="text"
-            placeholder="Search by phone number..."
+            placeholder="Search by phone or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -128,7 +128,7 @@ export default function AdminUsers() {
           <table className="w-full min-w-max">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Phone</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">User</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Joined</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Last Login</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase whitespace-nowrap">Orders</th>
@@ -140,7 +140,10 @@ export default function AdminUsers() {
             <tbody className="divide-y divide-gray-200">
               {filteredUsers.map((user) => (
                 <tr key={user._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-4 font-medium text-gray-900 whitespace-nowrap">{user.phoneNumber}</td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="font-medium text-gray-900">{user.name || 'N/A'}</div>
+                    <div className="text-sm text-gray-500">{user.email || user.phoneNumber || 'N/A'}</div>
+                  </td>
                   <td className="px-4 py-4 text-gray-600 text-sm whitespace-nowrap">{new Date(user.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-4 text-gray-600 text-sm whitespace-nowrap">{new Date(user.lastLogin).toLocaleDateString()}</td>
                   <td className="px-4 py-4 whitespace-nowrap">
@@ -197,8 +200,16 @@ export default function AdminUsers() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-xs text-gray-600 mb-1">Name</p>
+                    <p className="font-semibold text-gray-900">{selectedUser.name || 'N/A'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-xs text-gray-600 mb-1">Email</p>
+                    <p className="font-semibold text-gray-900">{selectedUser.email || 'N/A'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-xs text-gray-600 mb-1">Phone Number</p>
-                    <p className="font-semibold text-gray-900">{selectedUser.phoneNumber}</p>
+                    <p className="font-semibold text-gray-900">{selectedUser.phoneNumber || 'N/A'}</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-xs text-gray-600 mb-1">User ID</p>

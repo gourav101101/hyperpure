@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 
 interface Props {
   open: boolean;
@@ -14,7 +15,8 @@ export default function LogoutModal({ open, onClose, onLogout, onLogoutAll }: Pr
 
   if (!open) return null;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
     if (onLogout) onLogout();
     else {
       localStorage.removeItem('isLoggedIn');
@@ -25,10 +27,10 @@ export default function LogoutModal({ open, onClose, onLogout, onLogoutAll }: Pr
   };
 
   const handleLogoutAll = async () => {
+    await signOut({ redirect: false });
     if (onLogoutAll) {
       await onLogoutAll();
     } else {
-      // default: clear and redirect
       localStorage.clear();
       router.push('/');
     }
