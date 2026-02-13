@@ -59,17 +59,19 @@ export const authOptions = {
       }
       return true;
     },
-    async jwt({ token, user }: any) {
+    async jwt({ token, user, account }: any) {
       if (user) {
-        token.id = user.id;
-        token.phone = user.phone;
+        token.id = user.id || user.email;
+        token.email = user.email;
+        token.name = user.name;
       }
       return token;
     },
     async session({ session, token }: any) {
-      if (token) {
+      if (token && session.user) {
         session.user.id = token.id;
-        session.user.phone = token.phone;
+        session.user.email = token.email;
+        session.user.name = token.name;
       }
       return session;
     },

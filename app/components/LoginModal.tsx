@@ -20,17 +20,16 @@ export default function LoginModal({ open, onClose, onSuccess }: LoginModalProps
   const [loading, setLoading] = useState(false);
   const [devOtp, setDevOtp] = useState("");
 
-  // Handle Google session
+  // Handle Google session - reload on login
   useEffect(() => {
-    if (session?.user && open) {
+    if (session?.user) {
       dispatch(login({ 
         userId: session.user.email || '',
         userPhone: session.user.email || '', 
         userName: session.user.name || 'User' 
       }));
-      onClose();
     }
-  }, [session, open, dispatch, onClose]);
+  }, [session, dispatch]);
 
   useEffect(() => {
     if (showOtpScreen && timer > 0) {
@@ -41,12 +40,9 @@ export default function LoginModal({ open, onClose, onSuccess }: LoginModalProps
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    try {
-      await signIn('google', { callbackUrl: '/' });
-    } catch (error) {
-      alert('Google sign-in failed');
-      setLoading(false);
-    }
+    await signIn('google', { 
+      callbackUrl: window.location.origin,
+    });
   };
 
   const sendOTP = async () => {

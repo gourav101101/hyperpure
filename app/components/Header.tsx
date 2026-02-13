@@ -22,7 +22,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const isCatalogue = !!pathname && pathname.startsWith("/catalogue");
   const { totalItems, cartAnimation } = useCart();
   const { isLoggedIn, userId, userPhone, userName } = useAppSelector((state) => state.auth);
@@ -31,6 +31,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
   const [isMounted, setIsMounted] = React.useState(false);
   const [locationSearch, setLocationSearch] = React.useState("");
   const [cartPulse, setCartPulse] = React.useState(false);
+  const [storedLoggedIn, setStoredLoggedIn] = React.useState(false);
   const didInitCartPulseRef = React.useRef(false);
   const cartPulseTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   
@@ -74,6 +75,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
       if (storedSearch) {
         dispatch(setSearchQuery(storedSearch));
       }
+      setStoredLoggedIn(localStorage.getItem('isLoggedIn') === 'true');
     }
     fetchLocations();
   }, [dispatch]);
@@ -121,7 +123,9 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
     }
   }, [session, isMounted, dispatch]);
 
-  const actualIsLoggedIn = isLoggedInProp !== undefined ? isLoggedInProp : (isMounted ? (isLoggedIn || !!session) : false);
+  const derivedLoggedIn = isMounted ? (isLoggedIn || !!session || storedLoggedIn) : false;
+  const actualIsLoggedIn = isLoggedInProp !== undefined ? (isLoggedInProp || derivedLoggedIn) : derivedLoggedIn;
+  const authResolved = isMounted && sessionStatus !== "loading";
 
   const fetchLocations = async () => {
     try {
@@ -213,7 +217,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
             <div className="text-lg md:text-2xl font-bold text-black">hyperpure</div>
             <div className="text-[10px] md:text-xs text-gray-500 tracking-wide">BY ZOMATO</div>
           </a>
-          {isMounted && !actualIsLoggedIn && !isCatalogue && (
+          {authResolved && !actualIsLoggedIn && !isCatalogue && (
             <div className="relative">
               <button onClick={() => dispatch(setShowLocationModal(true))} className="text-xs md:text-sm text-gray-600 hover:bg-gray-50 px-2 md:px-3 py-2 rounded-lg transition-colors">
                 <div className="text-[10px] md:text-xs text-gray-500 flex items-center gap-1">
@@ -243,7 +247,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
               )}
             </div>
           )}
-          {isMounted && actualIsLoggedIn && (
+          {authResolved && actualIsLoggedIn && (
             <div className="hidden lg:flex items-center gap-3 text-sm border-l border-gray-200 pl-6">
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-teal-500" fill="currentColor" viewBox="0 0 20 20">
@@ -259,7 +263,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
           )}
         </div>
 
-        {isMounted && actualIsLoggedIn ? (
+        {authResolved && actualIsLoggedIn ? (
           <>
             <div className="flex-1 max-w-2xl hidden md:block">
               <form onSubmit={handleSearchSubmit} className="relative">
@@ -553,7 +557,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
           </div>
         )}
 
-        {isMounted && !actualIsLoggedIn && (
+        {authResolved && !actualIsLoggedIn && (
           <div className="flex items-center gap-2 md:gap-4">
             <button
               onClick={handleLoginClick}
@@ -562,6 +566,9 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
               Login/Signup
             </button>
           </div>
+        )}
+        {!authResolved && (
+          <div className="h-9 w-28 rounded-full bg-gray-200 animate-pulse" />
         )}
       </nav>
 

@@ -12,24 +12,23 @@ import Sustainability from "./components/Sustainability";
 import Testimonials from "./components/Testimonials";
 import FAQ from "./components/FAQ";
 import Footer from "./components/Footer";
+import { useSession } from "next-auth/react";
+import { useAppDispatch, useAppSelector } from "./store/hooks";
+import { login } from "./store/authSlice";
 
 export default function Home() {
+  const dispatch = useAppDispatch();
+  const authLoggedIn = useAppSelector((state) => state.auth.isLoggedIn);
+  const { data: session } = useSession();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [showOtpScreen, setShowOtpScreen] = useState(false);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timer, setTimer] = useState(30);
   const [loading, setLoading] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [devOtp, setDevOtp] = useState("");
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const loginStatus = localStorage.getItem('isLoggedIn') === 'true';
-      setIsLoggedIn(loginStatus);
-      console.log('Login status:', loginStatus);
-    }
-  }, []);
+  const [isClient, setIsClient] = useState(false);
+  const isLoggedIn = authLoggedIn || !!session?.user || (isClient && localStorage.getItem('isLoggedIn') === 'true');
   
   
   const [categories, setCategories] = useState<any[]>([]);
@@ -58,6 +57,10 @@ export default function Home() {
       image2: "https://images.unsplash.com/photo-1599909533730-f9d7e5d4d3b5?w=150"
     }
   ];
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     setIsLoading(false);
@@ -145,7 +148,11 @@ export default function Home() {
       if (data.success) {
         setShowOtpScreen(false);
         setShowLoginModal(false);
-        setIsLoggedIn(true);
+        dispatch(login({
+          userId: data.userId || phoneNumber,
+          userPhone: data.userPhone || phoneNumber,
+          userName: data.userName || 'Guest',
+        }));
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userPhone', phoneNumber);
       } else {
@@ -159,7 +166,7 @@ export default function Home() {
 
   return (
     <div>
-      {!isLoading && <Header onLoginClick={() => setShowLoginModal(true)} isLoggedIn={isLoggedIn} />}
+      {!isLoading && <Header onLoginClick={() => setShowLoginModal(true)} />}
       
       {isLoading ? (
         <div className="min-h-screen bg-white">
