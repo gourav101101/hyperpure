@@ -22,6 +22,12 @@ export default function Checkout() {
     if (cart.length === 0) {
       router.push('/catalogue');
     }
+    const error = new URLSearchParams(window.location.search).get('error');
+    if (error === 'payment_failed') {
+      alert('Payment failed. Please try again.');
+    } else if (error === 'payment_error') {
+      alert('Payment error occurred. Please try again.');
+    }
   }, [cart]);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -48,6 +54,54 @@ export default function Checkout() {
         const cess = (itemTotal * (item.cessRate || 0)) / 100;
         return sum + gst + cess;
       }, 0);
+
+      if (formData.paymentMethod === 'phonepe') {
+        const orderRes = await fetch('/api/payment/phonepe/pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            phoneNumber,
+            items: cart,
+            deliveryAddress: formData,
+            paymentMethod: 'phonepe',
+            subtotal,
+            gstAmount: calculatedGstAmount,
+            deliveryFee,
+            totalAmount: total
+          })
+        });
+
+        const orderData = await orderRes.json();
+        if (!orderData.orderId) {
+          alert('Failed to create order');
+          setLoading(false);
+          return;
+        }
+
+        const paymentRes = await fetch('/api/payment/phonepe/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: total,
+            orderId: orderData.orderId,
+            userId,
+            phone: phoneNumber
+          })
+        });
+
+        const paymentData = await paymentRes.json();
+        if (paymentData.success) {
+          localStorage.setItem('pendingOrderId', orderData.orderId);
+          clearCart();
+          window.location.href = paymentData.paymentUrl;
+          return;
+        } else {
+          alert('Payment initiation failed');
+          setLoading(false);
+          return;
+        }
+      }
 
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -156,7 +210,7 @@ export default function Checkout() {
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
                     >
                       <option value="cod">Cash on Delivery</option>
-                      <option value="online">Online Payment (Coming Soon)</option>
+                      <option value="phonepe">PhonePe</option>
                     </select>
                   </div>
                 </div>

@@ -12,6 +12,7 @@ function OrderConfirmationContent() {
   useEffect(() => {
     const orderId = searchParams?.get('orderId');
     if (orderId) {
+      localStorage.removeItem('pendingOrderId');
       fetch(`/api/orders?id=${orderId}`)
         .then(r => r.json())
         .then(data => setOrder(data));
