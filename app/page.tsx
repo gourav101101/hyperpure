@@ -19,7 +19,7 @@ import { login } from "./store/authSlice";
 export default function Home() {
   const dispatch = useAppDispatch();
   const authLoggedIn = useAppSelector((state) => state.auth.isLoggedIn);
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [showOtpScreen, setShowOtpScreen] = useState(false);
@@ -28,7 +28,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [devOtp, setDevOtp] = useState("");
   const [isClient, setIsClient] = useState(false);
-  const isLoggedIn = authLoggedIn || !!session?.user || (isClient && localStorage.getItem('isLoggedIn') === 'true');
+  const [storedLoggedIn, setStoredLoggedIn] = useState(false);
+  const isLoggedIn = authLoggedIn || !!session?.user || storedLoggedIn;
+  const authResolved = isClient && (sessionStatus !== "loading" || storedLoggedIn);
   
   
   const [categories, setCategories] = useState<any[]>([]);
@@ -60,6 +62,9 @@ export default function Home() {
 
   useEffect(() => {
     setIsClient(true);
+    if (typeof window !== "undefined") {
+      setStoredLoggedIn(localStorage.getItem("isLoggedIn") === "true");
+    }
   }, []);
 
   useEffect(() => {
@@ -184,6 +189,18 @@ export default function Home() {
             </div>
           </div>
         </div>
+      ) : !authResolved ? (
+        <main className="pt-20 pb-20 md:pb-12">
+          <div className="max-w-7xl mx-auto px-4 md:px-6">
+            <div className="mt-4 md:mt-8 mb-8 md:mb-12 h-40 md:h-52 bg-gray-100 rounded-3xl animate-pulse"></div>
+            <div className="h-8 w-56 bg-gray-100 rounded mb-8 animate-pulse"></div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 md:gap-6">
+              {[...Array(14)].map((_, i) => (
+                <div key={i} className="h-28 md:h-36 bg-gray-100 rounded-2xl md:rounded-3xl animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        </main>
       ) : isLoggedIn ? (
         <main className="pt-20 pb-20 md:pb-12">
           <div className="max-w-7xl mx-auto px-4 md:px-6">

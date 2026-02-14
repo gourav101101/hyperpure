@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Notification from '@/models/Notification';
+import User from '@/models/User';
+import admin from 'firebase-admin';
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    })
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +29,16 @@ export async function POST(req: NextRequest) {
       actionUrl: link,
       isRead: false
     });
+
+    // Send FCM notification
+    const user = await User.findById(userId);
+    if (user?.fcmTokens?.length) {
+      await admin.messaging().sendEachForMulticast({
+        tokens: user.fcmTokens,
+        notification: { title, body: message },
+        webpush: link ? { fcmOptions: { link } } : undefined
+      });
+    }
 
     return NextResponse.json({ success: true, notification });
   } catch (error) {

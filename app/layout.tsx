@@ -7,6 +7,7 @@ import { SocketProvider } from "./context/SocketContext";
 import { ReduxProvider } from "./store/ReduxProvider";
 import { ReactQueryProvider } from "@/lib/ReactQueryProvider";
 import { AuthProvider } from "./providers/AuthProvider";
+import NotificationProvider from "./components/NotificationProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,7 +42,9 @@ export default function RootLayout({
             <ReactQueryProvider>
               <SocketProvider>
                 <CartProvider>
-                  {children}
+                  <NotificationProvider>
+                    {children}
+                  </NotificationProvider>
                 </CartProvider>
                 <Toaster position="top-right" richColors />
               </SocketProvider>

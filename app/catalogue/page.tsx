@@ -132,6 +132,11 @@ function CatalogueContent() {
   const filteredProducts = products.filter(p => {
     if (p.category !== selectedTopCategory) return false;
     if (selectedCategory !== "All" && p.subcategory !== selectedCategory) return false;
+    // Filter by veg mode
+    if (typeof window !== 'undefined') {
+      const vegMode = localStorage.getItem('vegMode') === 'true';
+      if (vegMode && !p.veg) return false;
+    }
     return true;
   });
 
@@ -264,13 +269,16 @@ function CatalogueContent() {
                           <>
                             <div className="flex items-center gap-1 md:gap-2 mb-1 md:mb-2">
                               <span className="bg-green-50 text-green-700 px-1.5 md:px-2 py-0.5 md:py-1 rounded text-xs font-semibold">{productPrices[product._id].packSize}</span>
+                              {productPrices[product._id].stock === 0 && (
+                                <span className="bg-orange-50 text-orange-700 px-1.5 md:px-2 py-0.5 md:py-1 rounded text-xs font-semibold">Out of Stock</span>
+                              )}
                             </div>
                             <div className="mb-1">
                               <div className="flex items-baseline gap-1 md:gap-2">
-                                <span className="text-sm md:text-2xl font-bold text-green-600">₹{productPrices[product._id].price}</span>
+                                <span className={`text-sm md:text-2xl font-bold ${productPrices[product._id].stock === 0 ? 'text-gray-400' : 'text-green-600'}`}>₹{productPrices[product._id].price}</span>
                                 <span className="text-xs text-gray-500">/ {productPrices[product._id].unit}</span>
                               </div>
-                              <div className="text-xs text-gray-500">Hyperpure Verified</div>
+                              <div className="text-xs text-gray-500">{productPrices[product._id].stock === 0 ? 'Temporarily Unavailable' : 'Hyperpure Verified'}</div>
                             </div>
                           </>
                         ) : (
@@ -280,21 +288,36 @@ function CatalogueContent() {
                               {product.packSize && (
                                 <span className="bg-gray-100 text-gray-600 px-1.5 md:px-2 py-0.5 md:py-1 rounded text-xs">{product.packSize}</span>
                               )}
+                              <span className="bg-gray-100 text-gray-600 px-1.5 md:px-2 py-0.5 md:py-1 rounded text-xs font-semibold">Coming Soon</span>
                             </div>
-                            <div className="text-xs text-orange-600 font-medium mb-1">Coming soon</div>
+                            <div className="text-xs text-gray-500 mb-1">We're sourcing this product</div>
                           </>
                         )}
                       </div>
                     </Link>
-                    {productPrices[product._id] && (
-                      <div className="px-2 md:px-4 pb-2 md:pb-4">
+                    <div className="px-2 md:px-4 pb-2 md:pb-4">
+                      {productPrices[product._id] ? (
+                        productPrices[product._id].stock === 0 ? (
+                          <button 
+                            onClick={(e) => { e.preventDefault(); router.push(`/catalogue/${product._id}`); }}
+                            className="w-full bg-white text-orange-600 border border-orange-500 md:border-2 px-3 md:px-6 py-1 md:py-2 rounded-lg text-xs md:text-sm font-bold hover:bg-orange-50">
+                            NOTIFY ME
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={(e) => { e.preventDefault(); router.push(`/catalogue/${product._id}`); }}
+                            className="w-full bg-white text-red-500 border border-red-500 md:border-2 px-3 md:px-6 py-1 md:py-2 rounded-lg text-xs md:text-sm font-bold hover:bg-red-50">
+                            VIEW OPTIONS
+                          </button>
+                        )
+                      ) : (
                         <button 
                           onClick={(e) => { e.preventDefault(); router.push(`/catalogue/${product._id}`); }}
-                          className="w-full bg-white text-red-500 border border-red-500 md:border-2 px-3 md:px-6 py-1 md:py-2 rounded-lg text-xs md:text-sm font-bold hover:bg-red-50">
-                          VIEW OPTIONS
+                          className="w-full bg-white text-gray-500 border border-gray-400 md:border-2 px-3 md:px-6 py-1 md:py-2 rounded-lg text-xs md:text-sm font-bold hover:bg-gray-50">
+                          NOTIFY ME
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ))}
                 </div>

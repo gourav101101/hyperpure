@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import Footer from "../components/Footer";
@@ -10,38 +11,97 @@ import { logout } from "../store/authSlice";
 import { clearCart } from "../store/cartSlice";
 import { clearCheckout } from "../store/checkoutSlice";
 
+interface UserProfile {
+  name: string;
+  email: string;
+  phoneNumber: string;
+  panCard: string;
+  legalEntity: string;
+  address: string;
+  city: string;
+  pincode: string;
+  whatsappUpdates: boolean;
+  showTax: boolean;
+  paperInvoice: boolean;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { isLoggedIn, userPhone } = useAppSelector((state) => state.auth);
-  const [orders, setOrders] = useState<any[]>([]);
+  const { data: session } = useSession();
+  const { isLoggedIn, userPhone, userName } = useAppSelector((state) => state.auth);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  
+  const [profile, setProfile] = useState<UserProfile>({
+    name: '',
+    email: '',
+    phoneNumber: '',
+    panCard: '',
+    legalEntity: 'Guest Account',
+    address: '',
+    city: '',
+    pincode: '',
+    whatsappUpdates: false,
+    showTax: false,
+    paperInvoice: false
+  });
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isMounted) return;
-    if (!isLoggedIn) {
-      router.push('/catalogue');
-      return;
+    if (session?.user) {
+      setProfile(prev => ({
+        ...prev,
+        name: session.user.name || '',
+        email: session.user.email || ''
+      }));
+    } else if (userName || userPhone) {
+      setProfile(prev => ({
+        ...prev,
+        name: userName || '',
+        phoneNumber: userPhone || ''
+      }));
     }
-    fetchOrders();
-  }, [isLoggedIn, isMounted]);
+    loadProfile();
+  }, [session]);
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    const userId = localStorage.getItem('userId');
-    if (!userId) return;
-    const res = await fetch(`/api/orders?userId=${userId}`);
-    if (res.ok) {
-      const data = await res.json();
-      setOrders(data.orders || []);
+  const loadProfile = async () => {
+    try {
+      const userId = session?.user?.email || localStorage.getItem('userId');
+      if (!userId) return;
+      
+      const res = await fetch(`/api/users/profile?id=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(prev => ({ ...prev, ...data }));
+      }
+    } catch (error) {
+      console.error('Failed to load profile:', error);
     }
-    setLoading(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/users/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: session?.user?.email,
+          ...profile
+        })
+      });
+      
+      if (res.ok) {
+        setIsEditing(false);
+        alert('Profile updated successfully!');
+      }
+    } catch (error) {
+      alert('Failed to update profile');
+    }
+    setSaving(false);
   };
 
   const handleLogout = () => {
@@ -53,83 +113,252 @@ export default function ProfilePage() {
       <Header isLoggedIn={true} />
       <main className="pt-24 pb-24 md:pb-20 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-white rounded-xl p-4 md:p-8 shadow-sm mb-4 md:mb-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold mb-2">My Profile</h1>
-                <p className="text-sm md:text-base text-gray-600">
-                  +91 {isMounted ? userPhone : ''}
-                </p>
+          <h1 className="text-3xl font-bold mb-6">Profile settings</h1>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Account Details */}
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="space-y-6">
+                {profile.name && (
+                  <div>
+                    <label className="text-sm text-gray-500 block mb-1">User name</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={profile.name}
+                        onChange={(e) => setProfile({...profile, name: e.target.value})}
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    ) : (
+                      <p className="text-base font-medium">{profile.name}</p>
+                    )}
+                  </div>
+                )}
+
+                {(profile.phoneNumber || isEditing) && (
+                  <div>
+                    <label className="text-sm text-gray-500 block mb-1">Phone number</label>
+                    {isEditing ? (
+                      <input
+                        type="tel"
+                        value={profile.phoneNumber}
+                        onChange={(e) => setProfile({...profile, phoneNumber: e.target.value})}
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="Enter phone number"
+                      />
+                    ) : (
+                      <p className="text-base font-medium">{profile.phoneNumber}</p>
+                    )}
+                  </div>
+                )}
+
+                {profile.email && (
+                  <div>
+                    <label className="text-sm text-gray-500 block mb-1">Email address</label>
+                    <p className="text-base font-medium">{profile.email}</p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">PAN card number</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={profile.panCard}
+                      onChange={(e) => setProfile({...profile, panCard: e.target.value.toUpperCase()})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="Enter PAN card"
+                      maxLength={10}
+                    />
+                  ) : profile.panCard ? (
+                    <p className="text-base font-medium">{profile.panCard}</p>
+                  ) : (
+                    <p className="text-sm text-orange-600 flex items-center gap-1">
+                      <span className="inline-block w-4 h-4 rounded-full bg-orange-100 text-orange-600 text-xs flex items-center justify-center">!</span>
+                      Unverified
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Legal entity name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={profile.legalEntity}
+                      onChange={(e) => setProfile({...profile, legalEntity: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  ) : (
+                    <p className="text-base font-medium">{profile.legalEntity}</p>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  {isEditing ? (
+                    <>
+                      <button 
+                        onClick={() => setIsEditing(false)}
+                        className="flex-1 border-2 border-gray-300 text-gray-700 px-6 py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="flex-1 bg-red-500 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-red-600 transition disabled:opacity-50"
+                      >
+                        {saving ? 'Saving...' : 'Save'}
+                      </button>
+                    </>
+                  ) : (
+                    <button 
+                      onClick={() => setIsEditing(true)}
+                      className="flex-1 bg-red-500 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-red-600 transition"
+                    >
+                      Edit Details
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600">📱</span>
+                      <span className="text-sm">Send me order updates on WhatsApp</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={profile.whatsappUpdates}
+                        onChange={(e) => setProfile({...profile, whatsappUpdates: e.target.checked})}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">ℹ️</span>
+                      <span className="text-sm">Show prices including tax</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={profile.showTax}
+                        onChange={(e) => setProfile({...profile, showTax: e.target.checked})}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">📄</span>
+                      <span className="text-sm">Send me paper invoice with orders.</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={profile.paperInvoice}
+                        onChange={(e) => setProfile({...profile, paperInvoice: e.target.checked})}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                    </label>
+                  </div>
+                </div>
               </div>
-              <button onClick={handleLogout} className="bg-red-500 text-white px-4 md:px-6 py-2 rounded-full font-semibold hover:bg-red-600 text-sm md:text-base">
+            </div>
+
+            {/* Right Column - Delivery Address */}
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="mb-4">
+                <div className="flex justify-between items-start mb-2">
+                  <h2 className="text-lg font-bold">Delivery Address</h2>
+                  {!isEditing && (
+                    <button 
+                      onClick={() => setIsEditing(true)}
+                      className="text-red-500 text-sm font-semibold flex items-center gap-1"
+                    >
+                      <span>✏️</span> edit
+                    </button>
+                  )}
+                </div>
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={profile.address}
+                      onChange={(e) => setProfile({...profile, address: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="Street address"
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        value={profile.city}
+                        onChange={(e) => setProfile({...profile, city: e.target.value})}
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="City"
+                      />
+                      <input
+                        type="text"
+                        value={profile.pincode}
+                        onChange={(e) => setProfile({...profile, pincode: e.target.value})}
+                        className="w-full px-3 py-2 border rounded-lg"
+                        placeholder="Pincode"
+                      />
+                    </div>
+                  </div>
+                ) : profile.address ? (
+                  <p className="text-sm text-gray-600">{profile.address}, {profile.city} - {profile.pincode}</p>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No address added</p>
+                )}
+              </div>
+
+              {(profile.phoneNumber || profile.email) && (
+                <div className="space-y-3 pt-4 border-t">
+                  {profile.phoneNumber && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">📞</span>
+                      <span className="text-sm">{profile.phoneNumber}</span>
+                    </div>
+                  )}
+                  {profile.email && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">✉️</span>
+                      <span className="text-sm">{profile.email}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {session?.user && (
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm font-semibold text-blue-900 mb-2">Google Account Connected</p>
+                  <div className="flex items-center gap-3">
+                    {session.user.image && (
+                      <img src={session.user.image} alt={session.user.name || ''} className="w-10 h-10 rounded-full" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">{session.user.name}</p>
+                      <p className="text-xs text-gray-600">{session.user.email}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button 
+                onClick={handleLogout}
+                className="w-full mt-6 bg-gray-100 text-gray-700 px-6 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition"
+              >
                 Logout
               </button>
             </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-4 md:p-8 shadow-sm">
-            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Order History</h2>
-            {loading ? (
-              <div className="space-y-4">
-                {[1, 2].map((i) => (
-                  <div key={i} className="border rounded-lg p-4 md:p-6 animate-pulse">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 rounded w-32"></div>
-                        <div className="h-4 bg-gray-200 rounded w-24"></div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="h-6 bg-gray-200 rounded w-20"></div>
-                        <div className="h-6 bg-gray-200 rounded w-16"></div>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 rounded"></div>
-                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">📦</div>
-                <p className="text-gray-600 mb-4">No orders yet</p>
-                <button onClick={() => router.push('/catalogue')} className="bg-red-500 text-white px-4 md:px-6 py-2 rounded-full font-semibold hover:bg-red-600 text-sm md:text-base">
-                  Start Shopping
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {orders.map((order) => (
-                  <div key={order._id} className="border rounded-lg p-4 md:p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Order ID: {order._id}</p>
-                        <p className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold">₹{order.totalAmount}</p>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                          order.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                          order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
-                          {order.status.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {order.items.map((item: any, idx: number) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span>{item.name} × {item.quantity}</span>
-                          <span>₹{item.price * item.quantity}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </main>

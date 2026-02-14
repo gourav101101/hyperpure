@@ -34,7 +34,7 @@ const OrderSchema = new mongoose.Schema({
   // Order Status
   status: { 
     type: String, 
-    enum: ['pending', 'confirmed', 'assigned', 'processing', 'out_for_delivery', 'delivered', 'cancelled'], 
+    enum: ['pending', 'pending_payment', 'confirmed', 'assigned', 'processing', 'out_for_delivery', 'delivered', 'cancelled'], 
     default: 'pending' 
   },
   
@@ -70,8 +70,10 @@ const OrderSchema = new mongoose.Schema({
   deliveryProof: String, // Image URL
   
   // Payment
-  paymentMethod: { type: String, enum: ['cod', 'online'], default: 'cod' },
+  paymentMethod: { type: String, enum: ['cod', 'online', 'phonepe', 'razorpay'], default: 'cod' },
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'refunded'], default: 'pending' },
+  transactionId: { type: String },
+  paymentDetails: { type: mongoose.Schema.Types.Mixed },
   
   // Payout Hold System (24hr after delivery)
   payoutStatus: { type: String, enum: ['pending', 'on_hold', 'released', 'completed'], default: 'pending' },

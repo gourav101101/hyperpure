@@ -63,13 +63,11 @@ export default function BuyerCheckout() {
       setPayOnDelivery(storedPayOnDelivery === 'true');
     }
     
-    setLoading(false);
-    
     // Fetch delivery slots
     fetchDeliverySlots();
     
     setPageLoading(false);
-  }, [userName, userPhone]);
+  }, [userName, userPhone, dispatch]);
 
   const fetchDeliverySlots = async () => {
     try {
@@ -146,12 +144,10 @@ export default function BuyerCheckout() {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
     localStorage.setItem('useWallet', String(useWallet));
   }, [useWallet]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
     localStorage.setItem('payOnDelivery', String(payOnDelivery));
   }, [payOnDelivery]);
 
@@ -163,7 +159,7 @@ export default function BuyerCheckout() {
   }, [showSlotModal]);
 
   useEffect(() => {
-    if (!selectedSlot && typeof window !== 'undefined') {
+    if (!selectedSlot) {
       const storedSlotRaw = localStorage.getItem('selectedSlot');
       if (storedSlotRaw) {
         try {
@@ -188,14 +184,14 @@ export default function BuyerCheckout() {
   const total = subtotal + gstCess + deliveryFee + invoiceFee;
 
   const handlePlaceOrder = async () => {
-    if (payOnDelivery) {
-      setLoading(true);
-      try {
-        const orderItems = cart.map(item => ({
-          ...item,
-          _id: item._id.includes('-') ? item._id.split('-')[0] : item._id
-        }));
-        
+    setLoading(true);
+    try {
+      const orderItems = cart.map(item => ({
+        ...item,
+        _id: item._id.includes('-') ? item._id.split('-')[0] : item._id
+      }));
+      
+      if (payOnDelivery) {
         const res = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -204,7 +200,7 @@ export default function BuyerCheckout() {
             phoneNumber: receiver.phone,
             items: orderItems,
             subtotal,
-            gstCess,
+            gstAmount: gstCess,
             deliveryFee,
             totalAmount: total,
             deliveryAddress: { address, name: receiver.name, phone: receiver.phone, pincode: '452010' },
@@ -221,14 +217,58 @@ export default function BuyerCheckout() {
           const error = await res.json();
           alert('Order failed: ' + (error.error || 'Unknown error'));
         }
-      } catch (error) {
-        console.error('Order error:', error);
-        alert('Order failed');
+      } else {
+        // PhonePe payment flow
+        const orderRes = await fetch('/api/payment/phonepe/pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userId || 'guest',
+            phoneNumber: receiver.phone,
+            items: orderItems,
+            subtotal,
+            gstAmount: gstCess,
+            deliveryFee,
+            totalAmount: total,
+            deliveryAddress: { address, name: receiver.name, phone: receiver.phone, pincode: '452010' },
+            deliverySlot: selectedSlot,
+            paymentMethod: 'phonepe',
+            paperInvoice
+          })
+        });
+
+        const orderData = await orderRes.json();
+        if (!orderData.orderId) {
+          alert('Failed to create order');
+          setLoading(false);
+          return;
+        }
+
+        const paymentRes = await fetch('/api/payment/phonepe/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: total,
+            orderId: orderData.orderId,
+            userId: userId || 'guest',
+            phone: receiver.phone
+          })
+        });
+
+        const paymentData = await paymentRes.json();
+        if (paymentData.success) {
+          clearCart();
+          window.location.href = paymentData.paymentUrl;
+          return;
+        } else {
+          alert('Payment initiation failed: ' + (paymentData.error || 'Unknown error'));
+        }
       }
-      setLoading(false);
-    } else {
-      router.push(`/buyer/payment?total=${total.toFixed(2)}`);
+    } catch (error) {
+      console.error('Order error:', error);
+      alert('Order failed');
     }
+    setLoading(false);
   };
 
   if (pageLoading) {
@@ -437,7 +477,7 @@ export default function BuyerCheckout() {
                       <input type="checkbox" checked={payOnDelivery} onChange={(e) => setPayOnDelivery(e.target.checked)} className="w-4 h-4" />
                       <span className="font-medium">Pay on delivery</span>
                     </div>
-                    <p className="text-sm text-gray-500 ml-6">Available limit: ₹5,000</p>
+                    <p className="text-sm text-gray-500 ml-6">{payOnDelivery ? 'Cash on Delivery' : 'Pay via PhonePe'}</p>
                   </div>
                   <span className="font-bold">₹0</span>
                 </label>
@@ -629,10 +669,8 @@ export default function BuyerCheckout() {
                 onClick={() => {
                   if (tempSelectedSlot) {
                     dispatch(setSelectedSlot(tempSelectedSlot));
-                    if (typeof window !== 'undefined') {
-                      localStorage.setItem('selectedSlotId', tempSelectedSlot._id);
-                      localStorage.setItem('selectedSlot', JSON.stringify(tempSelectedSlot));
-                    }
+                    localStorage.setItem('selectedSlotId', tempSelectedSlot._id);
+                    localStorage.setItem('selectedSlot', JSON.stringify(tempSelectedSlot));
                   }
                   setShowSlotModal(false);
                 }}

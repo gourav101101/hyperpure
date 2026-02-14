@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Notifications</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px; }
+        input, textarea { width: 100%; padding: 10px; margin: 10px 0; }
+        button { background: #0070f3; color: white; padding: 12px 24px; border: none; cursor: pointer; }
+        .result { margin-top: 20px; padding: 10px; background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>Test Firebase Notifications</h1>
+    
+    <label>FCM Token:</label>
+    <textarea id="token" rows="3" placeholder="Paste FCM token from Flutter app"></textarea>
+    
+    <label>Title:</label>
+    <input id="title" value="Test Notification" />
+    
+    <label>Message:</label>
+    <input id="body" value="This is a test message!" />
+    
+    <button onclick="sendNotification()">Send Notification</button>
+    
+    <div id="result" class="result" style="display:none;"></div>
+
+    <script>
+        async function sendNotification() {
+            const token = document.getElementById('token').value;
+            const title = document.getElementById('title').value;
+            const body = document.getElementById('body').value;
+            
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.innerHTML = 'Sending...';
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/notifications/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, title, body })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    result.innerHTML = '✅ Notification sent successfully!';
+                    result.style.background = '#d4edda';
+                } else {
+                    result.innerHTML = '❌ Error: ' + data.error;
+                    result.style.background = '#f8d7da';
+                }
+            } catch (error) {
+                result.innerHTML = '❌ Error: ' + error.message;
+                result.style.background = '#f8d7da';
+            }
+        }
+    </script>
+</body>
+</html>

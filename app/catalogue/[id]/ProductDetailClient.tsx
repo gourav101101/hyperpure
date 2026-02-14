@@ -23,6 +23,8 @@ interface Product {
   bulkQuantity?: number;
   inStock: boolean;
   sku?: string;
+  hasActiveSellers?: boolean;
+  expectedRestockDate?: string;
 }
 
 const toWishlistItem = (p: Product) => ({
@@ -57,6 +59,7 @@ export default function ProductDetailClient({ id }: { id: string }) {
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
   const [deliverySlots, setDeliverySlots] = useState<any[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(true);
+  const [hasActiveSellers, setHasActiveSellers] = useState(false);
 
   useEffect(() => {
     setIsLoggedIn(authLoggedIn);
@@ -80,11 +83,18 @@ export default function ProductDetailClient({ id }: { id: string }) {
           const sellerRes = await fetch(`/api/products/sellers?productId=${data._id}`);
           const sellerData = await sellerRes.json();
           if (sellerData.sellers && sellerData.sellers.length > 0) {
+            setHasActiveSellers(true);
             setSelectedSellerProductId(sellerData.sellers[0]._id);
             // Update product with GST data from seller
             data.gstRate = sellerData.sellers[0].gstRate || 0;
             data.cessRate = sellerData.sellers[0].cessRate || 0;
+            // Check if seller has stock
+            if (sellerData.sellers[0].stock === 0) {
+              data.inStock = false;
+            }
             setProduct(data);
+          } else {
+            setHasActiveSellers(false);
           }
           
           // Fetch reviews
@@ -332,7 +342,36 @@ export default function ProductDetailClient({ id }: { id: string }) {
           </div>
 
           {/* Delivery Info */}
-          {loadingSlots ? (
+          {!product.inStock ? (
+            <div className="mb-6 md:mb-8">
+              <div className={`flex items-start gap-3 px-4 py-4 rounded-xl border-2 ${
+                hasActiveSellers 
+                  ? 'bg-orange-50 border-orange-300' 
+                  : 'bg-gray-50 border-gray-300'
+              }`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  hasActiveSellers ? 'bg-orange-500' : 'bg-gray-400'
+                }`}>
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-gray-900 mb-1">
+                    {hasActiveSellers ? 'Currently Out of Stock' : 'We\'re Sourcing This Product'}
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {hasActiveSellers 
+                      ? (product.expectedRestockDate 
+                          ? `Expected back: ${new Date(product.expectedRestockDate).toLocaleDateString()}` 
+                          : 'Usually restocks in 2-3 days')
+                      : 'We\'re working with sellers to bring this to you'
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : loadingSlots ? (
             <div className="mb-6 md:mb-8 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-gray-200 flex-shrink-0 bg-gray-50 animate-pulse">
                 <div className="w-10 h-10 rounded-full bg-gray-200"></div>
@@ -431,9 +470,13 @@ export default function ProductDetailClient({ id }: { id: string }) {
                 ) : (
                   <button 
                     onClick={() => setShowNotifyModal(true)}
-                    className="bg-gray-200 text-gray-600 px-8 py-3 rounded-xl font-bold text-lg"
+                    className={`px-8 py-3 rounded-xl font-bold text-lg ${
+                      hasActiveSellers 
+                        ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 border-2 border-orange-300' 
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300 border-2 border-gray-300'
+                    }`}
                   >
-                    NOTIFY
+                    NOTIFY ME
                   </button>
                 )}
               </div>
@@ -753,8 +796,12 @@ export default function ProductDetailClient({ id }: { id: string }) {
       {showNotifyModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">Get Notified</h3>
-            <p className="text-gray-600 mb-4">Enter your email to be notified when this product is back in stock.</p>
+            <h3 className="text-xl font-bold mb-2">Get Notified</h3>
+            <p className="text-gray-600 mb-4">
+              {hasActiveSellers 
+                ? 'We\'ll notify you when this product is back in stock.' 
+                : 'We\'ll notify you when we start offering this product.'}
+            </p>
             <input type="email" value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)} placeholder="Your email" className="w-full border border-gray-300 rounded-lg px-4 py-2 mb-4" />
             <div className="flex gap-3">
               <button onClick={() => setShowNotifyModal(false)} className="flex-1 border border-gray-300 py-2 rounded-lg hover:bg-gray-50">Cancel</button>

@@ -32,6 +32,13 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
   const [locationSearch, setLocationSearch] = React.useState("");
   const [cartPulse, setCartPulse] = React.useState(false);
   const [storedLoggedIn, setStoredLoggedIn] = React.useState(false);
+  const [showAccountStatementModal, setShowAccountStatementModal] = React.useState(false);
+  const [statementPeriod, setStatementPeriod] = React.useState("Last month");
+  const [statementStartDate, setStatementStartDate] = React.useState("2026-01-01");
+  const [statementEndDate, setStatementEndDate] = React.useState("2026-01-31");
+  const [statementLoading, setStatementLoading] = React.useState(false);
+  const [vegMode, setVegMode] = React.useState(false);
+  const [showNotifications, setShowNotifications] = React.useState(false);
   const didInitCartPulseRef = React.useRef(false);
   const cartPulseTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   
@@ -74,6 +81,10 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
       const storedSearch = localStorage.getItem('searchQuery');
       if (storedSearch) {
         dispatch(setSearchQuery(storedSearch));
+      }
+      const storedVegMode = localStorage.getItem('vegMode');
+      if (storedVegMode === 'true') {
+        setVegMode(true);
       }
       setStoredLoggedIn(localStorage.getItem('isLoggedIn') === 'true');
     }
@@ -190,6 +201,59 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
     document.getElementById('sustainability-section')?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleStatementDownload = async () => {
+    setStatementLoading(true);
+    try {
+      const res = await fetch('/api/account-statement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: session?.user?.email,
+          period: statementPeriod,
+          startDate: statementStartDate,
+          endDate: statementEndDate
+        })
+      });
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `statement-${statementStartDate}-${statementEndDate}.csv`;
+        a.click();
+        setShowAccountStatementModal(false);
+      }
+    } catch (error) {
+      alert('Failed to download statement');
+    }
+    setStatementLoading(false);
+  };
+
+  const handleStatementEmail = async () => {
+    setStatementLoading(true);
+    try {
+      const res = await fetch('/api/account-statement/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: session?.user?.email,
+          period: statementPeriod,
+          startDate: statementStartDate,
+          endDate: statementEndDate
+        })
+      });
+      
+      if (res.ok) {
+        alert('Statement sent to your email!');
+        setShowAccountStatementModal(false);
+      }
+    } catch (error) {
+      alert('Failed to send email');
+    }
+    setStatementLoading(false);
+  };
+
   // Simplified header for register-seller route
   if (pathname === '/register-seller') {
     return (
@@ -211,7 +275,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
 
   return (
     <header className="fixed top-0 w-full bg-white shadow-sm z-50">
-      <nav className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-4 md:gap-8">
+      <nav className="max-w-7xl mx-auto px-2 md:px-4 py-3 md:py-4 flex items-center justify-between gap-2 md:gap-4">
         <div className="flex items-center gap-3 md:gap-6">
           <a href="/" className="cursor-pointer flex-shrink-0">
             <div className="text-lg md:text-2xl font-bold text-black">hyperpure</div>
@@ -333,13 +397,17 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                       
                       <div className="flex items-center gap-3 mb-8">
                         <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                          </svg>
+                          {session?.user?.image ? (
+                            <img src={session.user.image} alt="" className="w-12 h-12 rounded-full" />
+                          ) : (
+                            <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            </svg>
+                          )}
                         </div>
                         <div>
-                          <div className="font-bold text-lg">Guest Outlet</div>
-                          <div className="text-sm text-gray-500">Guest Account</div>
+                          <div className="font-bold text-lg">{session?.user?.name || userName || 'Guest'}</div>
+                          <div className="text-sm text-gray-500">{session?.user?.email || 'Guest Account'}</div>
                         </div>
                       </div>
 
@@ -359,23 +427,14 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
-                        <button onClick={() => { router.push('/register-business'); dispatch(setShowMenu(false)); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { 
+                          setShowAccountStatementModal(true);
+                        }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             <span>Account statement</span>
-                          </div>
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
-                          <div className="flex items-center gap-3">
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>Need help</span>
                           </div>
                           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -388,7 +447,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                           <div className="w-1 h-5 bg-red-500 rounded"></div>
                           <h3 className="font-bold text-gray-900">Wallet & payment</h3>
                         </div>
-                        <button onClick={() => { router.push('/loyalty'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { router.push('/loyalty'); dispatch(setShowMenu(false)); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -420,20 +479,6 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
-                        <button onClick={() => { router.push('/register-business'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
-                          <div className="flex items-center gap-3">
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                            <span>Register as business</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-medium">NEW</span>
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </div>
-                        </button>
                         <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <div className="w-5 h-5 border-2 border-green-600 rounded flex items-center justify-center">
@@ -442,11 +487,21 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                             <span>Veg mode</span>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" />
+                            <input 
+                              type="checkbox" 
+                              checked={vegMode}
+                              onChange={(e) => {
+                                setVegMode(e.target.checked);
+                                if (typeof window !== 'undefined') {
+                                  localStorage.setItem('vegMode', e.target.checked.toString());
+                                }
+                              }}
+                              className="sr-only peer" 
+                            />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                           </label>
                         </button>
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => setShowNotifications(true)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -468,18 +523,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
-                          <div className="flex items-center gap-3">
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-                            </svg>
-                            <span>Claim coupon</span>
-                          </div>
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { router.push('/request-product'); dispatch(setShowMenu(false)); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -490,7 +534,10 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
-                        <button className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { 
+                          dispatch(setShowMenu(false)); 
+                          router.push('/faq');
+                        }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -571,6 +618,120 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
           <div className="h-9 w-28 rounded-full bg-gray-200 animate-pulse" />
         )}
       </nav>
+
+      {showNotifications && (
+        <div className="fixed inset-0 bg-black/30 z-[60] flex">
+          <div className="ml-auto w-full sm:w-96 bg-white shadow-2xl h-full overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold">Notifications</h2>
+              <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 text-3xl">×</button>
+            </div>
+
+            <div className="divide-y">
+              {[
+                { id: 1, title: "Tea's perfect match 🍪", message: "Stock biscuits & cookies for your Valentine pairings 😊", time: "19 hours ago" },
+                { id: 2, title: "✅ Don't wait...", message: "Give your Valentine specials the support they need ⬇️", time: "19 hours ago" },
+                { id: 3, title: "💗 Valentine weekend rush!", message: "Bulk deals live. Stock up before it's too late", time: "20 hours ago" },
+                { id: 4, title: "This is a reminder...", message: "to stock up on raw materials for the week ahead ✨", time: "2 days ago" },
+                { id: 5, title: "🌟 Special prices for you 🌟", message: "Discounts on bestselling items. Shop now ⬇️", time: "2 days ago" },
+                { id: 6, title: "Masala box empty?", message: "Refill haldi & dhaniya masala before dinner hits", time: "3 days ago" }
+              ].map((notif) => (
+                <div key={notif.id} className="p-4 hover:bg-gray-50 cursor-pointer">
+                  <div className="flex gap-3">
+                    <div className="w-12 h-12 bg-red-500 rounded flex items-center justify-center flex-shrink-0">
+                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-900 mb-1">{notif.title}</h3>
+                      <p className="text-sm text-gray-600 mb-2">{notif.message}</p>
+                      <p className="text-xs text-gray-400">{notif.time}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAccountStatementModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Choose accounting period</h2>
+              <button onClick={() => setShowAccountStatementModal(false)} className="text-gray-400 hover:text-gray-600 text-3xl">×</button>
+            </div>
+
+            <div className="flex flex-wrap gap-3 mb-6">
+              {["Custom", "Last month", "Current month", "Last quarter", "Current quarter"].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setStatementPeriod(p)}
+                  className={`px-6 py-2 rounded-full font-medium transition ${
+                    statementPeriod === p
+                      ? 'bg-red-100 text-red-600 border-2 border-red-500'
+                      : 'bg-gray-100 text-gray-700 border-2 border-transparent hover:border-gray-300'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-lg font-bold mb-4">Select Date</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-gray-500 block mb-2">Start Date</label>
+                  <input
+                    type="date"
+                    value={statementStartDate}
+                    onChange={(e) => setStatementStartDate(e.target.value)}
+                    className="w-full px-4 py-3 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-2">End Date</label>
+                  <input
+                    type="date"
+                    value={statementEndDate}
+                    onChange={(e) => setStatementEndDate(e.target.value)}
+                    className="w-full px-4 py-3 border rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-gray-600">
+                <strong>NOTE:</strong>
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                1. Account statement includes details of all your transactions on hyperpure
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleStatementEmail}
+                disabled={statementLoading}
+                className="flex-1 bg-red-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-600 transition disabled:opacity-50"
+              >
+                {statementLoading ? 'Sending...' : 'Send Email'}
+              </button>
+              <button
+                onClick={handleStatementDownload}
+                disabled={statementLoading}
+                className="flex-1 border-2 border-red-500 text-red-500 px-6 py-3 rounded-lg font-semibold hover:bg-red-50 transition disabled:opacity-50"
+              >
+                {statementLoading ? 'Downloading...' : 'Download'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLocationModal && (
         <div className="fixed inset-0 bg-gradient-to-br from-black/50 via-black/40 to-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={() => {

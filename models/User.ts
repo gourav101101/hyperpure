@@ -6,6 +6,14 @@ const UserSchema = new mongoose.Schema({
   phoneNumber: { type: String, sparse: true, unique: true },
   password: { type: String },
   role: { type: String, enum: ['buyer', 'seller', 'admin'], default: 'buyer' },
+  panCard: { type: String },
+  legalEntity: { type: String, default: 'Guest Account' },
+  address: { type: String },
+  city: { type: String },
+  pincode: { type: String },
+  whatsappUpdates: { type: Boolean, default: false },
+  showTax: { type: Boolean, default: false },
+  paperInvoice: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: Date.now },
   orderCount: { type: Number, default: 0 },
@@ -15,7 +23,8 @@ const UserSchema = new mongoose.Schema({
     quantity: { type: Number, default: 1 }
   }],
   otp: { type: String },
-  otpExpiresAt: { type: Date }
+  otpExpiresAt: { type: Date },
+  fcmTokens: [{ type: String }]
 });
 
 export default mongoose.models.User || mongoose.model('User', UserSchema);

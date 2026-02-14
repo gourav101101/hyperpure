@@ -79,30 +79,28 @@ export default function ProductShowcase({ showAll = false }: ProductShowcaseProp
               <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
                 {section.products.map((product: Product) => (
                   <Link key={product.id || product._id} href={`/catalogue/${product._id || product.id}`}>
-                    <div className={`min-w-[300px] bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-shadow cursor-pointer ${!product.inStock ? 'opacity-60' : ''}`}>
+                    <div className={`min-w-[300px] bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-shadow cursor-pointer ${!product.inStock ? 'opacity-70' : ''}`}>
                       <div className="relative mb-4">
-                        <img src={product.images[0]} alt={product.name} className={`w-full h-48 object-cover rounded-xl ${!product.inStock ? 'grayscale' : ''}`} />
+                        <img src={product.images[0]} alt={product.name} className="w-full h-48 object-cover rounded-xl" />
                         <div className={`absolute top-3 left-3 w-6 h-6 border-2 ${product.veg ? 'border-green-600' : 'border-red-600'} rounded flex items-center justify-center bg-white`}>
                           <div className={`w-3 h-3 ${product.veg ? 'bg-green-600' : 'bg-red-600'} rounded-full`}></div>
                         </div>
                         {!product.inStock && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
-                            <span className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-sm">OUT OF STOCK</span>
-                          </div>
+                          <div className="absolute top-3 right-3 bg-orange-500 text-white px-3 py-1 rounded-lg font-bold text-xs">Out of Stock</div>
                         )}
                       </div>
                       <h3 className="font-semibold text-gray-900 mb-2 min-h-[48px]">{product.name}</h3>
                       <p className="text-gray-500 text-sm mb-8">{product.unit}</p>
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-2xl font-bold text-gray-900">₹{product.price}</div>
+                          <div className={`text-2xl font-bold ${product.inStock ? 'text-gray-900' : 'text-gray-400'}`}>₹{product.price}</div>
                         </div>
                         {product.inStock ? (
                           <button className="border-2 border-red-500 text-red-500 px-6 py-2 rounded-xl font-bold">
                             ADD <span className="text-lg">+</span>
                           </button>
                         ) : (
-                          <button className="border-2 border-gray-400 text-gray-400 px-6 py-2 rounded-xl font-bold cursor-not-allowed">
+                          <button className="border-2 border-orange-500 text-orange-600 px-6 py-2 rounded-xl font-bold">
                             NOTIFY
                           </button>
                         )}
