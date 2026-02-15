@@ -15,16 +15,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Seller ID required' }, { status: 400 });
     }
 
-    const sellerIdValue = mongoose.Types.ObjectId.isValid(sellerId)
-      ? new mongoose.Types.ObjectId(sellerId)
-      : sellerId;
+    const sellerObjectId = new mongoose.Types.ObjectId(sellerId);
 
     const query: any = {
-      $or: [
-        { 'items.sellerId': sellerIdValue },
-        { 'assignedSellers.sellerId': sellerId },
-        { 'assignedSellers.sellerId': sellerIdValue }
-      ]
+      'items.sellerId': sellerObjectId
     };
 
     if (status && status !== 'all') {
@@ -35,32 +29,10 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
     
-    // Filter items to show only this seller's items
     const filteredOrders = orders.map((order: any) => {
-      // First try to match by item.sellerId
-      let sellerItems = order.items.filter((item: any) => 
-        item.sellerId?.toString() === sellerId.toString()
+      const sellerItems = order.items.filter((item: any) => 
+        item.sellerId?.toString() === sellerId
       );
-      
-      // Find seller assignment
-      const assignment = Array.isArray(order.assignedSellers)
-        ? order.assignedSellers.find((s: any) => 
-            s.sellerId?.toString() === sellerId.toString() || s.sellerId === sellerId
-          )
-        : null;
-      
-      // If no items matched by sellerId, use assignedSellers to find items
-      if (sellerItems.length === 0 && assignment) {
-        if (assignment.items?.length) {
-          const assignedProductIds = new Set(assignment.items.map((i: any) => i.toString()));
-          sellerItems = order.items.filter((item: any) => 
-            assignedProductIds.has(item.productId?.toString())
-          );
-        } else {
-          // If no specific items listed, show all items
-          sellerItems = order.items;
-        }
-      }
       
       const grossTotal = sellerItems.reduce((sum: number, item: any) => 
         sum + (item.sellerPrice || item.price) * item.quantity, 0
@@ -76,7 +48,7 @@ export async function GET(req: NextRequest) {
         grossTotal,
         totalCommission
       };
-    }).filter(order => order.items.length > 0);
+    });
     
     return NextResponse.json({ orders: filteredOrders });
   } catch (error) {
@@ -123,6 +95,52 @@ export async function PUT(req: NextRequest) {
     }
     
     await order.save();
+
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/socket/emit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          events: [
+            {
+              room: `admin-admin`,
+              event: 'order_updated',
+              data: {
+                orderId,
+                sellerId,
+                status,
+                updatedAt: new Date().toISOString()
+              }
+            },
+            {
+              room: `seller-${sellerId}`,
+              event: 'order_updated',
+              data: {
+                orderId,
+                sellerId,
+                status,
+                updatedAt: new Date().toISOString()
+              }
+            },
+            {
+              room: `admin-admin`,
+              event: 'notification',
+              data: {
+                _id: new mongoose.Types.ObjectId().toString(),
+                type: 'order_status',
+                title: 'Order Status Updated',
+                message: `Order #${order._id.toString().slice(-6)} is now ${status?.replace('_', ' ')}`,
+                actionUrl: '/admin/orders',
+                isRead: false,
+                createdAt: new Date().toISOString()
+              }
+            }
+          ]
+        })
+      });
+    } catch (socketError) {
+      console.error('Socket emit error (seller order update):', socketError);
+    }
     
     // Update seller performance
     if (status === 'delivered') {

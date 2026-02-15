@@ -129,7 +129,10 @@ export class OrderRouter {
     const tierCommissions = await TierCommission.find({ isActive: true }).lean();
     const tierMap = new Map(tierCommissions.map((tc: any) => [tc.tier, tc.commissionRate]));
 
+    console.log('🔍 Routing', items.length, 'items');
+
     for (const item of items) {
+      console.log('🔎 Finding seller for product:', item.productId);
       const bestSeller = await this.findBestSeller(
         item.productId,
         item.quantity,
@@ -137,6 +140,7 @@ export class OrderRouter {
       );
 
       if (!bestSeller) {
+        console.log('❌ No seller found for:', item.productId);
         routedItems.push({
           ...item,
           available: false,
@@ -144,6 +148,8 @@ export class OrderRouter {
         });
         continue;
       }
+
+      console.log('✅ Found seller:', bestSeller.sellerId, 'for product:', item.productId);
 
       // Calculate commission - Zomato Model (commission added on top)
       const sellerPrice = bestSeller.sellerPrice;
@@ -155,7 +161,7 @@ export class OrderRouter {
       routedItems.push({
         productId: item.productId,
         sellerProductId: bestSeller._id,
-        sellerId: bestSeller.sellerId._id || bestSeller.sellerId,
+        sellerId: bestSeller.sellerId,
         quantity: item.quantity,
         price: customerPrice,
         sellerPrice: sellerPrice,

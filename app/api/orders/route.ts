@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     const body = await req.json();
     
+    console.log('📦 Order request items:', body.items.map((i: any) => ({ id: i._id, name: i.name })));
+    
     // Find user by email if provided
     let userId = body.userId;
     if (body.deliveryAddress?.email) {
@@ -73,6 +75,12 @@ export async function POST(req: NextRequest) {
       body.deliveryAddress.pincode
     );
     
+    console.log('🚚 Routed items:', routedOrder.items.map((i: any) => ({ 
+      productId: i.productId, 
+      sellerId: i.sellerId,
+      available: i.available 
+    })));
+    
     // Calculate totals with commission
     let totalCommission = 0;
     let totalSellerPayout = 0;
@@ -83,10 +91,12 @@ export async function POST(req: NextRequest) {
       totalCommission += routedItem.commissionAmount || 0;
       totalSellerPayout += (routedItem.sellerPrice * routedItem.quantity);
       
+      const sellerId = routedItem.sellerId?._id || routedItem.sellerId;
+      
       return {
-        productId: routedItem.productId,
-        sellerProductId: routedItem.sellerProductId,
-        sellerId: routedItem.sellerId,
+        productId: new mongoose.Types.ObjectId(routedItem.productId),
+        sellerProductId: routedItem.sellerProductId ? new mongoose.Types.ObjectId(routedItem.sellerProductId) : undefined,
+        sellerId: new mongoose.Types.ObjectId(sellerId),
         name: originalItem.name,
         price: routedItem.price,
         quantity: routedItem.quantity,

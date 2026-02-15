@@ -12,30 +12,43 @@ export async function GET(request: Request) {
     }
 
     await dbConnect();
+    
     const user = await User.findOne({ 
-      $or: [{ email: id }, { _id: id }] 
+      $or: [{ email: id }, { phoneNumber: id }] 
     }).select('-password -otp -otpExpiresAt');
     
     if (!user) {
-      return NextResponse.json({});
+      return NextResponse.json({
+        name: '',
+        email: id.includes('@') ? id : '',
+        phoneNumber: !id.includes('@') ? id : '',
+        panCard: '',
+        legalEntity: 'Guest Account',
+        address: '',
+        city: '',
+        pincode: '',
+        whatsappUpdates: false,
+        showTax: false,
+        paperInvoice: false
+      });
     }
 
     return NextResponse.json({
-      name: user.name,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      panCard: user.panCard,
-      legalEntity: user.legalEntity,
-      address: user.address,
-      city: user.city,
-      pincode: user.pincode,
-      whatsappUpdates: user.whatsappUpdates,
-      showTax: user.showTax,
-      paperInvoice: user.paperInvoice
+      name: user.name || '',
+      email: user.email || '',
+      phoneNumber: user.phoneNumber || '',
+      panCard: user.panCard || '',
+      legalEntity: user.legalEntity || 'Guest Account',
+      address: user.address || '',
+      city: user.city || '',
+      pincode: user.pincode || '',
+      whatsappUpdates: user.whatsappUpdates || false,
+      showTax: user.showTax || false,
+      paperInvoice: user.paperInvoice || false
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Profile fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to fetch profile' }, { status: 500 });
   }
 }
 
@@ -43,13 +56,16 @@ export async function POST(request: Request) {
   try {
     const data = await request.json();
     
-    if (!data.email) {
-      return NextResponse.json({ error: 'Email required' }, { status: 400 });
+    if (!data.email && !data.phoneNumber) {
+      return NextResponse.json({ error: 'Email or phone required' }, { status: 400 });
     }
 
     await dbConnect();
+    
+    const query = data.email ? { email: data.email } : { phoneNumber: data.phoneNumber };
+    
     const user = await User.findOneAndUpdate(
-      { email: data.email },
+      query,
       {
         $set: {
           name: data.name,
@@ -67,9 +83,13 @@ export async function POST(request: Request) {
       { upsert: true, new: true }
     );
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
+    return NextResponse.json({ success: true, user });
+  } catch (error: any) {
     console.error('Profile update error:', error);
-    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to update profile' }, { status: 500 });
   }
+}
+
+export async function PUT(request: Request) {
+  return POST(request);
 }

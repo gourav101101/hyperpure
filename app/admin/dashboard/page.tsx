@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAdminSession } from "@/app/admin/utils/session";
+import AdminNotificationBell from "../components/AdminNotificationBell";
 
 type Stats = {
   totalProducts: number;
@@ -14,6 +15,7 @@ type Stats = {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const [adminId, setAdminId] = useState<string>('');
   const [stats, setStats] = useState<Stats>({
     totalProducts: 0,
     totalCategories: 0,
@@ -54,18 +56,24 @@ export default function AdminDashboard() {
       router.replace("/admin/login");
       return;
     }
+    const id = session.adminId || 'admin';
+    console.log('👤 Admin ID:', id);
+    setAdminId(id);
     fetchStats();
   }, [router]);
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
+          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
           <p className="text-gray-600">Overview of your platform statistics</p>
         </div>
-        <div className="text-sm text-gray-500">
-          Last updated: {new Date().toLocaleDateString()}
+        <div className="flex items-center gap-4">
+          {adminId && <AdminNotificationBell adminId={adminId} />}
+          <div className="text-sm text-gray-500">
+            {new Date().toLocaleDateString()}
+          </div>
         </div>
       </div>
 

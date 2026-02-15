@@ -8,7 +8,6 @@ export async function GET() {
     await dbConnect();
     const orders = await Order.find({}).sort({ createdAt: -1 }).lean();
     
-    // Get all unique seller IDs
     const sellerIds = new Set<string>();
     orders.forEach((order: any) => {
       order.items?.forEach((item: any) => {
@@ -16,11 +15,11 @@ export async function GET() {
       });
     });
     
-    // Fetch seller details
-    const sellers = await Seller.find({ _id: { $in: Array.from(sellerIds) } }).lean();
+    const sellers = await Seller.find({ _id: { $in: Array.from(sellerIds) } })
+      .select('_id name businessName phone email')
+      .lean();
     const sellerMap = new Map(sellers.map((s: any) => [s._id.toString(), s]));
     
-    // Add seller details to orders
     const ordersWithSellers = orders.map((order: any) => ({
       ...order,
       items: order.items?.map((item: any) => ({
@@ -31,6 +30,7 @@ export async function GET() {
     
     return NextResponse.json({ orders: ordersWithSellers });
   } catch (error) {
+    console.error('Admin orders error:', error);
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
   }
 }

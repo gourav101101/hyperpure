@@ -14,7 +14,8 @@ export default function AdminLogin() {
     e.preventDefault();
     if (email === "admin@hyperpure.com" && password === "admin123") {
       localStorage.setItem("adminAuth", "true");
-      setAdminSessionCookies();
+      localStorage.setItem("adminId", "admin");
+      setAdminSessionCookies("admin");
       router.push("/admin/dashboard");
     } else {
       toast.error("Invalid credentials! Use: admin@hyperpure.com / admin123");

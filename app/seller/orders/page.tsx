@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getSellerSession } from "@/app/seller/utils/session";
+import { io } from 'socket.io-client';
 
 export default function SellerOrders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -10,20 +11,67 @@ export default function SellerOrders() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [updating, setUpdating] = useState<string | null>(null);
+  const [sellerId, setSellerId] = useState<string>("");
 
   useEffect(() => {
-    fetchOrders();
+    const session = getSellerSession();
+    if (session.sellerId) {
+      setSellerId(session.sellerId);
+    }
   }, []);
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    const session = getSellerSession();
-    if (!session.sellerId) {
-      setError("Seller session not found. Please log in.");
-      setLoading(false);
-      return;
+  useEffect(() => {
+    if (sellerId) {
+      fetchOrders();
+
+      let pollingTimer: ReturnType<typeof setInterval> | null = null;
+      let socketInstance: ReturnType<typeof io> | null = null;
+
+      const setupRealtime = async () => {
+        await fetch('/api/socket');
+
+        socketInstance = io({ path: '/api/socket' });
+        socketInstance.on('connect', () => {
+          socketInstance?.emit('join', { userId: sellerId, userType: 'seller' });
+        });
+
+        socketInstance.on('notification', (data: any) => {
+          if (data.type === 'new_order' || data.type === 'order_status') {
+            fetchOrders();
+          }
+        });
+
+        socketInstance.on('order_updated', (data: any) => {
+          if (!data?.sellerId || data.sellerId === sellerId) {
+            fetchOrders();
+          }
+        });
+      };
+
+      setupRealtime();
+      pollingTimer = setInterval(fetchOrders, 15000);
+
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible') {
+          fetchOrders();
+        }
+      };
+
+      window.addEventListener('focus', fetchOrders);
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      return () => {
+        if (pollingTimer) clearInterval(pollingTimer);
+        socketInstance?.disconnect();
+        window.removeEventListener('focus', fetchOrders);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
     }
-    const res = await fetch(`/api/seller/orders?sellerId=${session.sellerId}&status=all`);
+  }, [sellerId]);
+
+  const fetchOrders = async () => {
+    if (!sellerId) return;
+    const res = await fetch(`/api/seller/orders?sellerId=${sellerId}&status=all`, { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       setOrders(data.orders || []);
@@ -34,17 +82,12 @@ export default function SellerOrders() {
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
+    if (!sellerId) return;
     setUpdating(orderId);
-    const session = getSellerSession();
-    if (!session.sellerId) {
-      setError("Seller session not found. Please log in.");
-      setUpdating(null);
-      return;
-    }
     const res = await fetch("/api/seller/orders", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, sellerId: session.sellerId, status })
+      body: JSON.stringify({ orderId, sellerId, status })
     });
     if (res.ok) {
       await fetchOrders();

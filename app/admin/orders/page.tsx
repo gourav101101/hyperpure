@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { io } from 'socket.io-client';
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -8,11 +9,51 @@ export default function AdminOrders() {
 
   useEffect(() => {
     fetchOrders();
+
+    let pollingTimer: ReturnType<typeof setInterval> | null = null;
+    let socketInstance: ReturnType<typeof io> | null = null;
+
+    const setupRealtime = async () => {
+      await fetch('/api/socket');
+
+      socketInstance = io({ path: '/api/socket' });
+      socketInstance.on('connect', () => {
+        socketInstance?.emit('join', { userId: 'admin', userType: 'admin' });
+      });
+
+      socketInstance.on('notification', (data: any) => {
+        if (data.type === 'new_order' || data.type === 'order_status') {
+          fetchOrders();
+        }
+      });
+
+      socketInstance.on('order_updated', () => {
+        fetchOrders();
+      });
+    };
+
+    setupRealtime();
+    pollingTimer = setInterval(fetchOrders, 15000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchOrders();
+      }
+    };
+
+    window.addEventListener('focus', fetchOrders);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (pollingTimer) clearInterval(pollingTimer);
+      socketInstance?.disconnect();
+      window.removeEventListener('focus', fetchOrders);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const fetchOrders = async () => {
-    setLoading(true);
-    const res = await fetch('/api/admin/orders');
+    const res = await fetch('/api/admin/orders', { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       setOrders(data.orders || []);
@@ -84,7 +125,7 @@ export default function AdminOrders() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
-                  {new Date(order.createdAt).toLocaleDateString()}
+                  {new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                 </td>
                 <td className="px-6 py-4">
                   <button 

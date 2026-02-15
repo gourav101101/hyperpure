@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 interface Notification {
   _id: string;
@@ -25,42 +25,60 @@ export default function LiveNotifications({
   buttonClassName?: string;
 }) {
   const router = useRouter();
+  const resolvedUserId = userType === 'admin' ? 'admin' : userId;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!resolvedUserId) return;
     
     fetchNotifications();
-    
-    // Connect to socket
-    const socketInstance = io({
-      path: '/api/socket'
-    });
-    
-    socketInstance.on('connect', () => {
-      console.log('Socket connected');
-      socketInstance.emit('join', { userId, userType });
-    });
-    
-    socketInstance.on('notification', (data: Notification) => {
-      console.log('New notification received:', data);
-      setNotifications(prev => [data, ...prev]);
-      setUnreadCount(prev => prev + 1);
-    });
-    
-    setSocket(socketInstance);
-    
-    return () => {
-      socketInstance.disconnect();
+
+    let pollingTimer: ReturnType<typeof setInterval> | null = null;
+    let socketInstance: ReturnType<typeof io> | null = null;
+
+    const setupRealtime = async () => {
+      await fetch('/api/socket');
+
+      socketInstance = io({
+        path: '/api/socket'
+      });
+
+      socketInstance.on('connect', () => {
+        socketInstance?.emit('join', { userId: resolvedUserId, userType });
+      });
+
+      socketInstance.on('notification', (data: Notification) => {
+        setNotifications(prev => [data, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      });
     };
-  }, [userId, userType]);
+
+    setupRealtime();
+    pollingTimer = setInterval(fetchNotifications, 20000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+
+    window.addEventListener('focus', fetchNotifications);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (pollingTimer) clearInterval(pollingTimer);
+      socketInstance?.disconnect();
+      window.removeEventListener('focus', fetchNotifications);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [resolvedUserId, userType]);
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`/api/notifications?userId=${userId}&userType=${userType}`);
+      if (!resolvedUserId) return;
+      const res = await fetch(`/api/notifications?userId=${resolvedUserId}&userType=${userType}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -90,7 +108,7 @@ export default function LiveNotifications({
       await fetch('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAllRead: true, userId, userType })
+        body: JSON.stringify({ markAllRead: true, userId: resolvedUserId, userType })
       });
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);

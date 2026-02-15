@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { io, Socket } from 'socket.io-client';
+import { useNotifications } from '../hooks/useNotifications';
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import Footer from "../components/Footer";
@@ -45,8 +45,7 @@ export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [socket, setSocket] = useState<Socket | null>(null);
+
   
   const [profile, setProfile] = useState<UserProfile>({
     name: '',
@@ -70,49 +69,9 @@ export default function ProfilePage() {
         name: session.user.name || '',
         email: session.user.email || ''
       }));
-      loadNotifications(session.user.email || '');
-      connectSocket(session.user.email || '');
-    } else if (userName || userPhone) {
-      setProfile(prev => ({
-        ...prev,
-        name: userName || '',
-        phoneNumber: userPhone || ''
-      }));
-      if (userPhone) {
-        loadNotifications(userPhone);
-        connectSocket(userPhone);
       }
-    }
     loadProfile();
   }, [session]);
-
-  const connectSocket = (userId: string) => {
-    const socketInstance = io({ path: '/api/socket' });
-    
-    socketInstance.on('connect', () => {
-      socketInstance.emit('join', { userId, userType: 'customer' });
-    });
-    
-    socketInstance.on('notification', (data: Notification) => {
-      setNotifications(prev => [data, ...prev]);
-    });
-    
-    setSocket(socketInstance);
-    
-    return () => socketInstance.disconnect();
-  };
-
-  const loadNotifications = async (userId: string) => {
-    try {
-      const res = await fetch(`/api/notifications?userId=${userId}&userType=customer`);
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-      }
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
-    }
-  };
 
   const loadProfile = async () => {
     try {
@@ -132,11 +91,13 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const userId = session?.user?.email || localStorage.getItem('userId');
       const res = await fetch('/api/users/profile', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: session?.user?.email,
+          phoneNumber: userPhone,
           ...profile
         })
       });
@@ -144,8 +105,12 @@ export default function ProfilePage() {
       if (res.ok) {
         setIsEditing(false);
         alert('Profile updated successfully!');
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to update profile');
       }
     } catch (error) {
+      console.error('Save error:', error);
       alert('Failed to update profile');
     }
     setSaving(false);
@@ -154,6 +119,9 @@ export default function ProfilePage() {
   const handleLogout = () => {
     setShowLogoutModal(true);
   };
+
+  const userId = session?.user?.email || userPhone || '';
+  const { notifications, unreadCount, isConnected, markAsRead } = useNotifications(userId, 'customer');
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -434,7 +402,10 @@ export default function ProfilePage() {
                 {notifications.map((notif) => (
                   <div
                     key={notif._id}
-                    onClick={() => notif.actionUrl && router.push(notif.actionUrl)}
+                    onClick={() => {
+                      markAsRead(notif._id);
+                      if (notif.actionUrl) router.push(notif.actionUrl);
+                    }}
                     className={`p-4 rounded-lg border cursor-pointer hover:shadow-md transition ${
                       !notif.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
                     }`}

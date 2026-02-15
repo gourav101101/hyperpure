@@ -10,12 +10,19 @@ export async function GET(req: NextRequest) {
     await dbConnect();
     const { searchParams } = new URL(req.url);
     const sellerId = searchParams.get('sellerId');
+    const email = searchParams.get('email');
     
-    if (!sellerId) {
-      return NextResponse.json({ error: 'Seller ID required' }, { status: 400 });
+    if (!sellerId && !email) {
+      return NextResponse.json({ error: 'Seller ID or email required' }, { status: 400 });
     }
     
-    const seller = await Seller.findById(sellerId);
+    let seller;
+    if (email) {
+      seller = await Seller.findOne({ email });
+    } else {
+      seller = await Seller.findById(sellerId);
+    }
+    
     if (!seller) {
       return NextResponse.json({ error: 'Seller not found' }, { status: 404 });
     }
@@ -23,16 +30,16 @@ export async function GET(req: NextRequest) {
     const products = await SellerProduct.find({ sellerId: seller._id });
     const totalProducts = products.length;
     const activeProducts = products.filter(p => p.isActive).length;
-    const performance = await SellerPerformance.findOne({ sellerId }).lean();
+    const performance = await SellerPerformance.findOne({ sellerId: seller._id }).lean();
 
     const orders = await Order.find({
-      'items.sellerId': sellerId,
+      'items.sellerId': seller._id.toString(),
       status: { $ne: 'cancelled' }
     }).lean();
 
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce((sum: number, order: any) => {
-      const sellerItems = order.items.filter((item: any) => item.sellerId?.toString() === sellerId);
+      const sellerItems = order.items.filter((item: any) => item.sellerId?.toString() === seller._id.toString());
       const orderRevenue = sellerItems.reduce((s: number, item: any) => s + (item.sellerPrice || item.price) * item.quantity, 0);
       return sum + orderRevenue;
     }, 0);

@@ -4,6 +4,8 @@ import Link from "next/link";
 import SellerPerformanceDashboard from "../components/SellerPerformanceDashboard";
 import { getSellerSession } from "@/app/seller/utils/session";
 
+import SellerNotificationBell from "../components/SellerNotificationBell";
+
 export default function SellerDashboard() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -96,6 +98,11 @@ export default function SellerDashboard() {
 
   return (
     <div className="p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Seller Dashboard</h1>
+        {sellerId && <SellerNotificationBell sellerId={sellerId} />}
+      </div>
+
       {commission && dashboardData?.performance && (
         <div className="mb-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-6">
           <div className="flex items-center justify-between">
