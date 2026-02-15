@@ -8,18 +8,28 @@ export default function GoogleOneTap() {
   useEffect(() => {
     if (session?.user) return; // Don't show if already logged in
 
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      console.warn("Google One Tap disabled: NEXT_PUBLIC_GOOGLE_CLIENT_ID is missing");
+      return;
+    }
+
     const initializeGoogleOneTap = () => {
       if (typeof window !== "undefined" && (window as any).google) {
         (window as any).google.accounts.id.initialize({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+          client_id: clientId,
           callback: handleCredentialResponse,
           auto_select: true,
           cancel_on_tap_outside: false,
         });
 
         (window as any).google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            console.log("One Tap not displayed:", notification.getNotDisplayedReason());
+          if (notification.isNotDisplayed()) {
+            console.log("One Tap not displayed:", notification.getNotDisplayedReason?.() || "unknown");
+          } else if (notification.isSkippedMoment()) {
+            console.log("One Tap skipped:", notification.getSkippedReason?.() || "unknown");
+          } else if (notification.isDismissedMoment()) {
+            console.log("One Tap dismissed:", notification.getDismissedReason?.() || "unknown");
           }
         });
       }

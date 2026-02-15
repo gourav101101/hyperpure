@@ -7,7 +7,7 @@ const NotificationSchema = new mongoose.Schema({
   type: { 
     type: String, 
     enum: [
-      'new_order', 'order_status', 'payout', 'low_stock', 
+      'info', 'new_order', 'order_status', 'payout', 'low_stock', 
       'price_alert', 'review', 'performance', 'bulk_order'
     ], 
     required: true 
@@ -22,6 +22,7 @@ const NotificationSchema = new mongoose.Schema({
   
   // Action
   actionUrl: String,
+  imageUrl: String,
   actionText: String,
   
   // Status

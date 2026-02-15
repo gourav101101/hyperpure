@@ -28,6 +28,7 @@ const SellerSchema = new mongoose.Schema({
     branch: { type: String },
     upiId: { type: String }
   },
+  fcmTokens: [{ type: String }],
   createdAt: { type: Date, default: Date.now },
   lastLogin: { type: Date, default: Date.now }
 });

@@ -14,6 +14,9 @@ export async function GET(req: NextRequest) {
     if (!sellerId) {
       return NextResponse.json({ error: 'Seller ID required' }, { status: 400 });
     }
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return NextResponse.json({ error: 'Invalid seller ID' }, { status: 400 });
+    }
 
     const sellerObjectId = new mongoose.Types.ObjectId(sellerId);
 
@@ -61,13 +64,48 @@ export async function PUT(req: NextRequest) {
   try {
     await dbConnect();
     const { orderId, sellerId, status, deliveryProof } = await req.json();
+    const allowedStatuses = new Set(['processing', 'out_for_delivery', 'delivered']);
+
+    if (!orderId || !sellerId) {
+      return NextResponse.json({ error: 'Order ID and seller ID required' }, { status: 400 });
+    }
+    if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(sellerId)) {
+      return NextResponse.json({ error: 'Invalid order or seller ID' }, { status: 400 });
+    }
+    if (status && !allowedStatuses.has(status)) {
+      return NextResponse.json({ error: 'Invalid status update' }, { status: 400 });
+    }
     
     const order = await Order.findById(orderId);
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
+
+    const sellerHasOrderItems = order.items.some((item: any) => item.sellerId?.toString() === sellerId);
+    if (!sellerHasOrderItems) {
+      return NextResponse.json({ error: 'Unauthorized seller for this order' }, { status: 403 });
+    }
+
+    const currentStatus = order.status;
+    const allowedTransitions: Record<string, string[]> = {
+      pending: ['processing'],
+      confirmed: ['processing'],
+      assigned: ['processing'],
+      processing: ['out_for_delivery'],
+      out_for_delivery: ['delivered']
+    };
+    if (status && currentStatus !== status) {
+      const nextAllowed = allowedTransitions[currentStatus] || [];
+      if (!nextAllowed.includes(status)) {
+        return NextResponse.json(
+          { error: `Invalid status transition from ${currentStatus} to ${status}` },
+          { status: 400 }
+        );
+      }
+    }
     
     // Update order status
+    const wasDelivered = order.status === 'delivered';
     if (status) {
       order.status = status;
       if (status === 'delivered') {
@@ -76,6 +114,7 @@ export async function PUT(req: NextRequest) {
         const holdUntil = new Date();
         holdUntil.setHours(holdUntil.getHours() + 24);
         order.payoutHoldUntil = holdUntil;
+        order.payoutStatus = 'on_hold';
       }
     }
     
@@ -88,9 +127,13 @@ export async function PUT(req: NextRequest) {
       (s: any) => s.sellerId.toString() === sellerId
     );
     if (sellerAssignment) {
-      if (status === 'processing') sellerAssignment.status = 'accepted';
+      if (status === 'processing') {
+        sellerAssignment.status = 'accepted';
+        if (!sellerAssignment.acceptedAt) {
+          sellerAssignment.acceptedAt = new Date();
+        }
+      }
       if (status === 'delivered') sellerAssignment.status = 'completed';
-      if (status === 'accepted') sellerAssignment.acceptedAt = new Date();
       if (status === 'delivered') sellerAssignment.completedAt = new Date();
     }
     
@@ -143,7 +186,7 @@ export async function PUT(req: NextRequest) {
     }
     
     // Update seller performance
-    if (status === 'delivered') {
+    if (status === 'delivered' && !wasDelivered) {
       const performance = await SellerPerformance.findOne({ sellerId });
       if (performance) {
         performance.completedOrders += 1;

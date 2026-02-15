@@ -12,6 +12,7 @@ export default function SellerOrders() {
   const [search, setSearch] = useState("");
   const [updating, setUpdating] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string>("");
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     const session = getSellerSession();
@@ -30,7 +31,10 @@ export default function SellerOrders() {
       const setupRealtime = async () => {
         await fetch('/api/socket');
 
-        socketInstance = io({ path: '/api/socket' });
+        socketInstance = io({
+          path: '/api/socket/io',
+          addTrailingSlash: false,
+        });
         socketInstance.on('connect', () => {
           socketInstance?.emit('join', { userId: sellerId, userType: 'seller' });
         });
@@ -71,30 +75,47 @@ export default function SellerOrders() {
 
   const fetchOrders = async () => {
     if (!sellerId) return;
-    const res = await fetch(`/api/seller/orders?sellerId=${sellerId}&status=all`, { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      setOrders(data.orders || []);
-    } else {
-      setError("Failed to load orders.");
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/seller/orders?sellerId=${sellerId}&status=all`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data.orders || []);
+        setLastSyncedAt(new Date());
+      } else {
+        setError("Failed to load orders.");
+      }
+    } catch {
+      setError("Network error while loading orders.");
     }
     setLoading(false);
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     if (!sellerId) return;
+    setError(null);
     setUpdating(orderId);
-    const res = await fetch("/api/seller/orders", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, sellerId, status })
-    });
-    if (res.ok) {
-      await fetchOrders();
-      setSelectedOrder(null);
+    try {
+      const res = await fetch("/api/seller/orders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, sellerId, status })
+      });
+      if (res.ok) {
+        await fetchOrders();
+        setSelectedOrder(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error || "Unable to update order status.");
+      }
+    } catch {
+      setError("Network error while updating order.");
     }
     setUpdating(null);
   };
+
+  const formatStatus = (status: string) => status.replace(/_/g, " ").toUpperCase();
 
   const getStatusColor = (status: string) => {
     const colors: any = {
@@ -110,23 +131,22 @@ export default function SellerOrders() {
 
   const stats = {
     all: orders.length,
+    actionRequired: orders.filter(o =>
+      o.status === "pending" ||
+      o.status === "confirmed" ||
+      o.status === "processing" ||
+      o.status === "out_for_delivery"
+    ).length,
     pending: orders.filter(o => o.status === "pending" || o.status === "confirmed").length,
     processing: orders.filter(o => o.status === "processing" || o.status === "out_for_delivery").length,
     delivered: orders.filter(o => o.status === "delivered").length
   };
 
-  if (error) return (
-    <div className="p-8">
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-        <p className="text-red-800 font-medium">{error}</p>
-      </div>
-    </div>
-  );
-
   const filteredOrders = orders.filter((order) => {
     const status = order.status;
     const matchesStatus =
       filter === "all" ||
+      (filter === "action_required" && status !== "delivered" && status !== "cancelled") ||
       (filter === "pending" && (status === "pending" || status === "confirmed")) ||
       (filter === "processing" && (status === "processing" || status === "out_for_delivery")) ||
       (filter === "delivered" && status === "delivered");
@@ -146,6 +166,11 @@ export default function SellerOrders() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Orders Management</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">Track and manage all your orders</p>
+            {lastSyncedAt && (
+              <p className="text-xs text-gray-500 mt-1">
+                Last synced: {lastSyncedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            )}
           </div>
           <button 
             onClick={fetchOrders}
@@ -156,7 +181,7 @@ export default function SellerOrders() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-5 sm:mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-5 mb-5 sm:mb-8">
           <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Orders</p>
             <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stats.all}</p>
@@ -173,13 +198,24 @@ export default function SellerOrders() {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivered</p>
             <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-1 sm:mt-2">{stats.delivered}</p>
           </div>
+          <div className="bg-white border-l-4 border-l-red-500 border-t border-r border-b border-gray-200 rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Action Required</p>
+            <p className="text-2xl sm:text-3xl font-bold text-red-600 mt-1 sm:mt-2">{stats.actionRequired}</p>
+          </div>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5 sm:mb-6">
+            <p className="text-sm text-red-800 font-medium">{error}</p>
+          </div>
+        )}
 
         <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-5 mb-5 sm:mb-6 shadow-sm">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex flex-wrap gap-2">
               {[
                 { id: "all", label: "All", count: stats.all },
+                { id: "action_required", label: "Action Required", count: stats.actionRequired },
                 { id: "pending", label: "Pending", count: stats.pending },
                 { id: "processing", label: "Processing", count: stats.processing },
                 { id: "delivered", label: "Delivered", count: stats.delivered }
@@ -239,7 +275,7 @@ export default function SellerOrders() {
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                       <h3 className="text-base sm:text-lg font-bold text-gray-900">#{order._id.slice(-6).toUpperCase()}</h3>
                       <span className={`px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-semibold border rounded-full ${getStatusColor(order.status)}`}>
-                        {order.status.replace("_", " ").toUpperCase()}
+                        {formatStatus(order.status)}
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm text-gray-600">
@@ -353,7 +389,7 @@ export default function SellerOrders() {
                     </p>
                   </div>
                   <span className={`px-4 py-1.5 text-xs font-semibold border rounded-full ${getStatusColor(selectedOrder.status)}`}>
-                    {selectedOrder.status.replace("_", " ").toUpperCase()}
+                    {formatStatus(selectedOrder.status)}
                   </span>
                 </div>
 

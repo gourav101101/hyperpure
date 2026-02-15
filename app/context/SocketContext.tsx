@@ -26,7 +26,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (!baseUrl) return;
 
     const socketInstance = io(baseUrl, {
-      path: '/api/socket',
+      path: '/api/socket/io',
       addTrailingSlash: false,
     });
 

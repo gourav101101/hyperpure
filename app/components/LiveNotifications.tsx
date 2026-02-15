@@ -10,6 +10,7 @@ interface Notification {
   message: string;
   isRead: boolean;
   actionUrl?: string;
+  imageUrl?: string;
   createdAt: string;
 }
 
@@ -42,7 +43,8 @@ export default function LiveNotifications({
       await fetch('/api/socket');
 
       socketInstance = io({
-        path: '/api/socket'
+        path: '/api/socket/io',
+        addTrailingSlash: false,
       });
 
       socketInstance.on('connect', () => {
@@ -206,6 +208,13 @@ export default function LiveNotifications({
                           {!notif.isRead && <span className="w-2 h-2 bg-blue-500 rounded-full mt-1"></span>}
                         </div>
                         <p className="text-xs text-gray-600 mt-1">{notif.message}</p>
+                        {notif.imageUrl && (
+                          <img
+                            src={notif.imageUrl}
+                            alt="Notification"
+                            className="mt-2 w-full h-24 object-cover rounded-lg border"
+                          />
+                        )}
                         <p className="text-xs text-gray-400 mt-2">
                           {new Date(notif.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                         </p>

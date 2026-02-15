@@ -508,7 +508,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                             </svg>
                             <span>Notifications</span>
                           </div>
-                          <LiveNotifications userType="customer" userId={session?.user?.email || userPhone || ''} trigger="chevron" buttonClassName="!p-0" />
+                          <LiveNotifications userType="customer" userId={((session?.user as any)?.id && /^[a-fA-F0-9]{24}$/.test((session?.user as any)?.id) ? (session?.user as any)?.id : session?.user?.email) || userPhone || ''} trigger="chevron" buttonClassName="!p-0" />
                         </button>
                         <button onClick={() => { router.push('/wishlist'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
@@ -624,7 +624,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
               <h2 className="text-2xl font-bold">Notifications</h2>
               <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 text-3xl">×</button>
             </div>
-            <LiveNotifications userType="customer" userId={session?.user?.email || userPhone || ''} trigger="bell" buttonClassName="hidden" />
+            <LiveNotifications userType="customer" userId={((session?.user as any)?.id && /^[a-fA-F0-9]{24}$/.test((session?.user as any)?.id) ? (session?.user as any)?.id : session?.user?.email) || userPhone || ''} trigger="bell" buttonClassName="hidden" />
           </div>
         </div>
       )}

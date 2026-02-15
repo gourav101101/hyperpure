@@ -15,7 +15,7 @@ export const initSocket = (res: NextApiResponseServerIO) => {
     console.log('🔌 Initializing Socket.IO server...');
     
     const io = new SocketIOServer(res.socket.server, {
-      path: '/api/socket',
+      path: '/api/socket/io',
       addTrailingSlash: false,
       cors: {
         origin: '*',

@@ -8,10 +8,15 @@ interface Notification {
   message: string;
   isRead: boolean;
   actionUrl?: string;
+  imageUrl?: string;
   createdAt: string;
 }
 
-export function useNotifications(userId: string | null, userType: 'customer' | 'seller' | 'admin') {
+export function useNotifications(
+  userId: string | null,
+  userType: 'customer' | 'seller' | 'admin',
+  options?: { limit?: number | 'all' }
+) {
   const resolvedUserId = userType === 'admin' ? 'admin' : userId;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -20,7 +25,14 @@ export function useNotifications(userId: string | null, userType: 'customer' | '
   const loadNotifications = useCallback(async () => {
     if (!resolvedUserId) return;
     try {
-      const res = await fetch(`/api/notifications?userId=${resolvedUserId}&userType=${userType}`, { cache: 'no-store' });
+      const params = new URLSearchParams({
+        userId: resolvedUserId,
+        userType
+      });
+      if (options?.limit !== undefined) {
+        params.set('limit', String(options.limit));
+      }
+      const res = await fetch(`/api/notifications?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -29,7 +41,7 @@ export function useNotifications(userId: string | null, userType: 'customer' | '
     } catch (error) {
       console.error('Failed to load notifications:', error);
     }
-  }, [resolvedUserId, userType]);
+  }, [resolvedUserId, userType, options?.limit]);
 
   useEffect(() => {
     if (!resolvedUserId) return;
@@ -41,7 +53,10 @@ export function useNotifications(userId: string | null, userType: 'customer' | '
     const setupRealtime = async () => {
       await fetch('/api/socket');
 
-      socketInstance = io({ path: '/api/socket' });
+      socketInstance = io({
+        path: '/api/socket/io',
+        addTrailingSlash: false,
+      });
 
       socketInstance.on('connect', () => {
         setIsConnected(true);
@@ -59,7 +74,8 @@ export function useNotifications(userId: string | null, userType: 'customer' | '
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification(newNotification.title, {
             body: newNotification.message,
-            icon: '/logo.png'
+            icon: newNotification.imageUrl || '/logo.png',
+            image: newNotification.imageUrl
           });
         }
       });

@@ -16,7 +16,10 @@ export default function AdminOrders() {
     const setupRealtime = async () => {
       await fetch('/api/socket');
 
-      socketInstance = io({ path: '/api/socket' });
+      socketInstance = io({
+        path: '/api/socket/io',
+        addTrailingSlash: false,
+      });
       socketInstance.on('connect', () => {
         socketInstance?.emit('join', { userId: 'admin', userType: 'admin' });
       });
