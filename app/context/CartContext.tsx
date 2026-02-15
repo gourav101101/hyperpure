@@ -33,6 +33,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cart = useAppSelector((state) => state.cart.items);
   const cartAnimation = useAppSelector((state) => state.cart.cartAnimation);
 
+  useEffect(() => {
+    const syncCart = async () => {
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        try {
+          const res = await fetch(`/api/cart?userId=${userId}`);
+          const data = await res.json();
+          if (data.cart) {
+            dispatch(clearCartAction());
+            data.cart.forEach((item: CartItem) => dispatch(addToCartAction(item)));
+          }
+        } catch (error) {
+          console.error('Failed to sync cart:', error);
+        }
+      }
+    };
+    syncCart();
+  }, []);
+
   const addToCart = (item: CartItem) => {
     dispatch(addToCartAction(item));
     setTimeout(() => dispatch(setCartAnimation(false)), 600);
@@ -46,8 +65,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     dispatch(updateQuantityAction({ id, quantity }));
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
     dispatch(clearCartAction());
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+      try {
+        await fetch('/api/cart', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+      } catch (error) {
+        console.error('Failed to clear backend cart:', error);
+      }
+    }
   };
 
   const getCartItem = (id: string) => cart.find(i => i._id === id);

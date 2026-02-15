@@ -32,7 +32,7 @@ export default function AdminHeader() {
         <p className="text-xs text-gray-500">{pageInfo.subtitle}</p>
       </div>
       <div className="flex items-center gap-4">
-        <LiveNotifications userType="admin" />
+        <LiveNotifications userType="admin" userId="admin" />
         <div className="flex items-center gap-3">
           <div className="text-right">
             <div className="text-sm font-medium text-gray-900">Admin User</div>

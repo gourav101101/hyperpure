@@ -5,18 +5,11 @@ import jwt from "jsonwebtoken";
 
 export async function POST(req: NextRequest) {
   try {
-    const { credential } = await req.json();
+    const { idToken, email, name } = await req.json();
     
-    const response = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`
-    );
-    
-    if (!response.ok) {
-      return NextResponse.json({ error: "Invalid credential" }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: "Email required" }, { status: 400 });
     }
-    
-    const data = await response.json();
-    const { email, name } = data;
     
     await dbConnect();
     
@@ -43,7 +36,8 @@ export async function POST(req: NextRequest) {
         email: user.email,
         name: user.name,
         role: user.role
-      }
+      },
+      token
     });
     
     res.cookies.set("auth-token", token, {
@@ -55,7 +49,7 @@ export async function POST(req: NextRequest) {
     
     return res;
   } catch (error) {
-    console.error("Google One Tap error:", error);
+    console.error("Google auth error:", error);
     return NextResponse.json({ error: "Sign-in failed" }, { status: 500 });
   }
 }

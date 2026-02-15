@@ -16,6 +16,7 @@ export default function CartPage() {
   const dispatch = useAppDispatch();
   const { selectedSlot, needInvoice } = useAppSelector((state) => state.checkout);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cartInitialized, setCartInitialized] = useState(false);
@@ -117,113 +118,124 @@ export default function CartPage() {
         dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
         const dayAfterTomorrowDay = dayAfterTomorrow.getDay();
         
-        const now = new Date();
-        const currentTime = now.getHours() * 60 + now.getMinutes();
-        
-        const processedSlots: DeliverySlot[] = allSlots.map((s: DeliverySlot) => {
-          const slot: DeliverySlot = { ...s };
-          slot.popularityScore = Math.floor(Math.random() * 40) + 60;
-          slot.isPopular = slot.popularityScore >= 75;
+        const processSlots = () => {
+          const now = new Date();
+          const currentTime = now.getHours() * 60 + now.getMinutes();
           
-          // Check cutoff time
-          if (s.orderCutoffTime) {
-            const [cutoffH, cutoffM] = s.orderCutoffTime.split(':').map(Number);
-            const cutoffTime = cutoffH * 60 + cutoffM;
-            const isPastCutoff = currentTime >= cutoffTime;
+          const processedSlots: DeliverySlot[] = allSlots.map((s: DeliverySlot) => {
+            const slot: DeliverySlot = { ...s };
+            slot.popularityScore = Math.floor(Math.random() * 40) + 60;
+            slot.isPopular = slot.popularityScore >= 75;
             
-            if (s.isExpress) {
-              slot.disabled = isPastCutoff;
-              slot.disabledReason = 'Cutoff time passed';
+            // Normalize express flag
+            const isExpressSlot = s.isExpress || s.slotType === 'express';
+            
+            // Check cutoff time
+            if (s.orderCutoffTime) {
+              const [cutoffH, cutoffM] = s.orderCutoffTime.split(':').map(Number);
+              const cutoffTime = cutoffH * 60 + cutoffM;
+              const isPastCutoff = currentTime >= cutoffTime;
               
-              // Check delivery window only if NOT 24/7
-              if (!s.express24x7 && !isPastCutoff && s.deliveryStartTime && s.deliveryEndTime) {
-                const [startH, startM] = s.deliveryStartTime.split(':').map(Number);
-                const [endH, endM] = s.deliveryEndTime.split(':').map(Number);
-                const startTime = startH * 60 + startM;
-                const endTime = endH * 60 + endM;
-                
-                if (currentTime < startTime) {
-                  slot.disabled = true;
-                  slot.disabledReason = 'Not yet open';
-                  const minsUntilOpen = startTime - currentTime;
-                  const hoursUntil = Math.floor(minsUntilOpen / 60);
-                  const minsUntil = minsUntilOpen % 60;
-                  slot.opensIn = hoursUntil > 0 ? `${hoursUntil}h ${minsUntil}m` : `${minsUntil}m`;
-                } else if (currentTime > endTime) {
-                  slot.disabled = true;
-                  slot.disabledReason = 'Closed for today';
-                }
-              }
-            } else {
-              // Standard: check if available for tomorrow or day after
-              const dayAvailableTomorrow = !s.daysOfWeek || s.daysOfWeek.length === 0 || s.daysOfWeek.includes(tomorrowDay);
-              const dayAvailableDayAfter = !s.daysOfWeek || s.daysOfWeek.length === 0 || s.daysOfWeek.includes(dayAfterTomorrowDay);
-              
-              if (isPastCutoff) {
-                if (dayAvailableDayAfter) {
-                  slot.deliveryDay = dayAfterTomorrow.toISOString();
-                  slot.deliveryDate = dayAfterTomorrow.toISOString().split('T')[0];
-                  slot.deliveryLabel = dayAfterTomorrow.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+              if (isExpressSlot) {
+                // If 24/7 express, never disable based on time
+                if (s.express24x7) {
+                  slot.disabled = false;
                 } else {
-                  slot.disabled = true;
-                  slot.disabledReason = 'Not available for next delivery';
+                  slot.disabled = isPastCutoff;
+                  slot.disabledReason = 'Cutoff time passed';
+                  
+                  // Check delivery window
+                  if (!isPastCutoff && s.deliveryStartTime && s.deliveryEndTime) {
+                    const [startH, startM] = s.deliveryStartTime.split(':').map(Number);
+                    const [endH, endM] = s.deliveryEndTime.split(':').map(Number);
+                    const startTime = startH * 60 + startM;
+                    const endTime = endH * 60 + endM;
+                    
+                    if (currentTime < startTime) {
+                      slot.disabled = true;
+                      slot.disabledReason = 'Not yet open';
+                      const minsUntilOpen = startTime - currentTime;
+                      const hoursUntil = Math.floor(minsUntilOpen / 60);
+                      const minsUntil = minsUntilOpen % 60;
+                      slot.opensIn = hoursUntil > 0 ? `${hoursUntil}h ${minsUntil}m` : `${minsUntil}m`;
+                    } else if (currentTime > endTime) {
+                      slot.disabled = true;
+                      slot.disabledReason = 'Closed for today';
+                    }
+                  }
                 }
               } else {
-                if (dayAvailableTomorrow) {
-                  slot.deliveryDay = tomorrow.toISOString();
-                  slot.deliveryDate = tomorrow.toISOString().split('T')[0];
-                  slot.deliveryLabel = 'Tomorrow';
-                } else if (dayAvailableDayAfter) {
-                  slot.deliveryDay = dayAfterTomorrow.toISOString();
-                  slot.deliveryDate = dayAfterTomorrow.toISOString().split('T')[0];
-                  slot.deliveryLabel = dayAfterTomorrow.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+                // Standard: check if available for tomorrow or day after
+                const dayAvailableTomorrow = !s.daysOfWeek || s.daysOfWeek.length === 0 || s.daysOfWeek.includes(tomorrowDay);
+                const dayAvailableDayAfter = !s.daysOfWeek || s.daysOfWeek.length === 0 || s.daysOfWeek.includes(dayAfterTomorrowDay);
+                
+                if (isPastCutoff) {
+                  if (dayAvailableDayAfter) {
+                    slot.deliveryDay = dayAfterTomorrow.toISOString();
+                    slot.deliveryDate = dayAfterTomorrow.toISOString().split('T')[0];
+                    slot.deliveryLabel = dayAfterTomorrow.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+                  } else {
+                    slot.disabled = true;
+                    slot.disabledReason = 'Not available for next delivery';
+                  }
                 } else {
-                  slot.disabled = true;
-                  slot.disabledReason = 'Not available for next delivery';
+                  if (dayAvailableTomorrow) {
+                    slot.deliveryDay = tomorrow.toISOString();
+                    slot.deliveryDate = tomorrow.toISOString().split('T')[0];
+                    slot.deliveryLabel = 'Tomorrow';
+                  } else if (dayAvailableDayAfter) {
+                    slot.deliveryDay = dayAfterTomorrow.toISOString();
+                    slot.deliveryDate = dayAfterTomorrow.toISOString().split('T')[0];
+                    slot.deliveryLabel = dayAfterTomorrow.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+                  } else {
+                    slot.disabled = true;
+                    slot.disabledReason = 'Not available for next delivery';
+                  }
                 }
               }
             }
-          }
+            
+            return slot;
+          });
           
-          return slot;
-        });
-        
-        const standard = processedSlots.filter((s) => !s.isExpress).sort((a, b) => {
-          const [aH, aM] = (a.deliveryStartTime || "00:00").split(':').map(Number);
-          const [bH, bM] = (b.deliveryStartTime || "00:00").split(':').map(Number);
-          return (aH * 60 + aM) - (bH * 60 + bM);
-        });
-        const express = processedSlots.filter((s) => s.isExpress);
-        setStandardSlots(standard);
-        setExpressSlots(express);
-        
-        // Restore previous selection if possible, otherwise auto-select
-        let restored = false;
-        if (!selectedSlot && typeof window !== 'undefined') {
-          const storedId = localStorage.getItem('selectedSlotId');
-          const storedSlotRaw = localStorage.getItem('selectedSlot');
-          const storedSlot = storedSlotRaw ? JSON.parse(storedSlotRaw) : null;
-          if (storedId) {
-            const match = [...standard, ...express].find(s => s._id === storedId);
-            if (match && !match.disabled && (!match.minOrderValue || totalAmount >= match.minOrderValue)) {
-              dispatch(setSelectedSlot(match));
+          const standard = processedSlots.filter((s) => !s.isExpress && s.slotType !== 'express').sort((a, b) => {
+            const [aH, aM] = (a.deliveryStartTime || "00:00").split(':').map(Number);
+            const [bH, bM] = (b.deliveryStartTime || "00:00").split(':').map(Number);
+            return (aH * 60 + aM) - (bH * 60 + bM);
+          });
+          const express = processedSlots.filter((s) => s.isExpress || s.slotType === 'express');
+          setStandardSlots(standard);
+          setExpressSlots(express);
+          
+          // Restore previous selection if possible, otherwise auto-select
+          let restored = false;
+          if (!selectedSlot && typeof window !== 'undefined') {
+            const storedId = localStorage.getItem('selectedSlotId');
+            const storedSlotRaw = localStorage.getItem('selectedSlot');
+            const storedSlot = storedSlotRaw ? JSON.parse(storedSlotRaw) : null;
+            if (storedId) {
+              const match = [...standard, ...express].find(s => s._id === storedId);
+              if (match && !match.disabled && (!match.minOrderValue || totalAmount >= match.minOrderValue)) {
+                dispatch(setSelectedSlot(match));
+                restored = true;
+              }
+            } else if (storedSlot && !storedSlot.disabled) {
+              dispatch(setSelectedSlot(storedSlot));
               restored = true;
             }
-          } else if (storedSlot && !storedSlot.disabled) {
-            dispatch(setSelectedSlot(storedSlot));
-            restored = true;
           }
-        }
-        if (!selectedSlot && !restored) {
-          const firstAvailable = [...standard, ...express].find(s =>
-            !s.disabled && (!s.minOrderValue || totalAmount >= s.minOrderValue)
-          );
-          if (firstAvailable) {
-            dispatch(setSelectedSlot(firstAvailable));
-            persistSelectedSlot(firstAvailable);
+          if (!selectedSlot && !restored) {
+            const firstAvailable = [...standard, ...express].find(s =>
+              !s.disabled && (!s.minOrderValue || totalAmount >= s.minOrderValue)
+            );
+            if (firstAvailable) {
+              dispatch(setSelectedSlot(firstAvailable));
+              persistSelectedSlot(firstAvailable);
+            }
           }
-        }
+        };
         
+        processSlots();
         setTimeout(updateCountdown, 100);
         setLoading(false);
       })
@@ -340,7 +352,7 @@ export default function CartPage() {
             <div className="lg:col-span-2">
               <div className="flex items-center justify-between mb-6 mt-8">
                 <h1 className="text-2xl md:text-3xl font-bold">{cart.length} items in cart</h1>
-                <button onClick={clearCart} className="text-red-500 hover:text-red-700">
+                <button onClick={() => setShowDeleteConfirm(true)} className="text-red-500 hover:text-red-700">
                   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
@@ -634,25 +646,6 @@ export default function CartPage() {
                     </div>
                   )}
                 </div>
-
-                {/* Coupons Corner */}
-                <div className="pt-6 border-t">
-                  <h3 className="font-bold text-lg mb-4">Coupons corner</h3>
-                  <div className="bg-blue-50 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                          <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="font-semibold text-gray-900">View deals & save more</span>
-                    </div>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -660,6 +653,23 @@ export default function CartPage() {
       </main>
       <BottomNav />
       <Footer />
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+            <h3 className="text-xl font-bold mb-2">Clear Cart?</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to remove all items from your cart?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl font-semibold hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={() => { clearCart(); setShowDeleteConfirm(false); }} className="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600">
+                Clear Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCheckout && (
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4">

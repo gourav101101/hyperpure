@@ -33,6 +33,7 @@ export default function AdminSidebar() {
     else if (pathname.includes("/bulk-orders")) setActiveMenu("bulk-orders");
     else if (pathname.includes("/campaigns")) setActiveMenu("campaigns");
     else if (pathname.includes("/delivery-slots")) setActiveMenu("delivery-slots");
+    else if (pathname.includes("/orders")) setActiveMenu("orders");
     else setActiveMenu("");
 
     if (pathname.includes("/categories")) {
@@ -131,6 +132,9 @@ export default function AdminSidebar() {
           </div>
 
           {/* Rest of menu items */}
+          <a href="/admin/orders" onClick={(e) => handleNavigation(e, "/admin/orders")} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all text-sm font-medium ${mounted && activeMenu === "orders" ? "bg-red-50 text-red-600 shadow-sm" : "text-gray-700 hover:bg-gray-50"}`}>
+            <span className="text-lg">🛒</span><span>Orders</span>
+          </a>
           <a href="/admin/products" onClick={(e) => handleNavigation(e, "/admin/products")} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all text-sm font-medium ${mounted && activeMenu === "products" ? "bg-red-50 text-red-600 shadow-sm" : "text-gray-700 hover:bg-gray-50"}`}>
             <span className="text-lg">🛍️</span><span>Products</span>
           </a>

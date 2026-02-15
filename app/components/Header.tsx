@@ -501,16 +501,14 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                           </label>
                         </button>
-                        <button onClick={() => setShowNotifications(true)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
+                        <button onClick={() => { setShowNotifications(true); dispatch(setShowMenu(false)); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
                             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                             </svg>
                             <span>Notifications</span>
                           </div>
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
+                          <LiveNotifications userType="customer" userId={session?.user?.email || userPhone || ''} trigger="chevron" buttonClassName="!p-0" />
                         </button>
                         <button onClick={() => { router.push('/wishlist'); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 rounded-lg text-sm">
                           <div className="flex items-center gap-3">
@@ -626,32 +624,7 @@ export default function Header({ onLoginClick, isLoggedIn: isLoggedInProp }: Hea
               <h2 className="text-2xl font-bold">Notifications</h2>
               <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 text-3xl">×</button>
             </div>
-
-            <div className="divide-y">
-              {[
-                { id: 1, title: "Tea's perfect match 🍪", message: "Stock biscuits & cookies for your Valentine pairings 😊", time: "19 hours ago" },
-                { id: 2, title: "✅ Don't wait...", message: "Give your Valentine specials the support they need ⬇️", time: "19 hours ago" },
-                { id: 3, title: "💗 Valentine weekend rush!", message: "Bulk deals live. Stock up before it's too late", time: "20 hours ago" },
-                { id: 4, title: "This is a reminder...", message: "to stock up on raw materials for the week ahead ✨", time: "2 days ago" },
-                { id: 5, title: "🌟 Special prices for you 🌟", message: "Discounts on bestselling items. Shop now ⬇️", time: "2 days ago" },
-                { id: 6, title: "Masala box empty?", message: "Refill haldi & dhaniya masala before dinner hits", time: "3 days ago" }
-              ].map((notif) => (
-                <div key={notif.id} className="p-4 hover:bg-gray-50 cursor-pointer">
-                  <div className="flex gap-3">
-                    <div className="w-12 h-12 bg-red-500 rounded flex items-center justify-center flex-shrink-0">
-                      <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 mb-1">{notif.title}</h3>
-                      <p className="text-sm text-gray-600 mb-2">{notif.message}</p>
-                      <p className="text-xs text-gray-400">{notif.time}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <LiveNotifications userType="customer" userId={session?.user?.email || userPhone || ''} trigger="bell" buttonClassName="hidden" />
           </div>
         </div>
       )}

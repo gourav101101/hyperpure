@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { io, Socket } from 'socket.io-client';
 
 interface Notification {
   _id: string;
@@ -27,14 +28,35 @@ export default function LiveNotifications({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
-    if (userId) fetchNotifications();
-    const interval = setInterval(() => {
-      if (userId) fetchNotifications();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [userId]);
+    if (!userId) return;
+    
+    fetchNotifications();
+    
+    // Connect to socket
+    const socketInstance = io({
+      path: '/api/socket'
+    });
+    
+    socketInstance.on('connect', () => {
+      console.log('Socket connected');
+      socketInstance.emit('join', { userId, userType });
+    });
+    
+    socketInstance.on('notification', (data: Notification) => {
+      console.log('New notification received:', data);
+      setNotifications(prev => [data, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    });
+    
+    setSocket(socketInstance);
+    
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, [userId, userType]);
 
   const fetchNotifications = async () => {
     try {
@@ -119,7 +141,7 @@ export default function LiveNotifications({
           </svg>
         )}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

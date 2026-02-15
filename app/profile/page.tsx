@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { io, Socket } from 'socket.io-client';
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import Footer from "../components/Footer";
@@ -25,6 +26,16 @@ interface UserProfile {
   paperInvoice: boolean;
 }
 
+interface Notification {
+  _id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  actionUrl?: string;
+  createdAt: string;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -34,6 +45,8 @@ export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [socket, setSocket] = useState<Socket | null>(null);
   
   const [profile, setProfile] = useState<UserProfile>({
     name: '',
@@ -57,15 +70,49 @@ export default function ProfilePage() {
         name: session.user.name || '',
         email: session.user.email || ''
       }));
+      loadNotifications(session.user.email || '');
+      connectSocket(session.user.email || '');
     } else if (userName || userPhone) {
       setProfile(prev => ({
         ...prev,
         name: userName || '',
         phoneNumber: userPhone || ''
       }));
+      if (userPhone) {
+        loadNotifications(userPhone);
+        connectSocket(userPhone);
+      }
     }
     loadProfile();
   }, [session]);
+
+  const connectSocket = (userId: string) => {
+    const socketInstance = io({ path: '/api/socket' });
+    
+    socketInstance.on('connect', () => {
+      socketInstance.emit('join', { userId, userType: 'customer' });
+    });
+    
+    socketInstance.on('notification', (data: Notification) => {
+      setNotifications(prev => [data, ...prev]);
+    });
+    
+    setSocket(socketInstance);
+    
+    return () => socketInstance.disconnect();
+  };
+
+  const loadNotifications = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/notifications?userId=${userId}&userType=customer`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+      }
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -106,6 +153,19 @@ export default function ProfilePage() {
 
   const handleLogout = () => {
     setShowLogoutModal(true);
+  };
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'new_order': case 'order_status': return '🛒';
+      case 'payout': return '💰';
+      case 'low_stock': return '📦';
+      case 'price_alert': return '💲';
+      case 'review': return '⭐';
+      case 'performance': return '📈';
+      case 'bulk_order': return '📋';
+      default: return '🔔';
+    }
   };
 
   return (
@@ -359,6 +419,46 @@ export default function ProfilePage() {
                 Logout
               </button>
             </div>
+          </div>
+
+          {/* Notifications Section */}
+          <div className="mt-6 bg-white rounded-lg p-6 shadow-sm">
+            <h2 className="text-xl font-bold mb-4">🔔 Notifications</h2>
+            {notifications.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <div className="text-5xl mb-3">🔔</div>
+                <p className="text-sm">No notifications yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {notifications.map((notif) => (
+                  <div
+                    key={notif._id}
+                    onClick={() => notif.actionUrl && router.push(notif.actionUrl)}
+                    className={`p-4 rounded-lg border cursor-pointer hover:shadow-md transition ${
+                      !notif.isRead ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex gap-3">
+                      <div className="text-2xl">{getIcon(notif.type)}</div>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-semibold text-sm text-gray-900">{notif.title}</h4>
+                          {!notif.isRead && <span className="w-2 h-2 bg-blue-500 rounded-full mt-1"></span>}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">{notif.message}</p>
+                        <p className="text-xs text-gray-400 mt-2">
+                          {new Date(notif.createdAt).toLocaleString('en-IN', { 
+                            dateStyle: 'medium', 
+                            timeStyle: 'short' 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>

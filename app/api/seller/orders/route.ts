@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const query: any = {
       $or: [
         { 'items.sellerId': sellerIdValue },
+        { 'assignedSellers.sellerId': sellerId },
         { 'assignedSellers.sellerId': sellerIdValue }
       ]
     };
@@ -36,37 +37,46 @@ export async function GET(req: NextRequest) {
     
     // Filter items to show only this seller's items
     const filteredOrders = orders.map((order: any) => {
-      const sellerItems = order.items.filter((item: any) => item.sellerId?.toString() === sellerId);
+      // First try to match by item.sellerId
+      let sellerItems = order.items.filter((item: any) => 
+        item.sellerId?.toString() === sellerId.toString()
+      );
+      
+      // Find seller assignment
       const assignment = Array.isArray(order.assignedSellers)
-        ? order.assignedSellers.find((s: any) => s.sellerId?.toString() === sellerId)
+        ? order.assignedSellers.find((s: any) => 
+            s.sellerId?.toString() === sellerId.toString() || s.sellerId === sellerId
+          )
         : null;
-      const hasSellerAssignment = !!assignment;
-
-      // If items don't have sellerId, fall back to assignedSellers.items (productIds)
-      let effectiveItems = sellerItems;
-      if (effectiveItems.length === 0 && assignment?.items?.length) {
-        const assignedProductIds = new Set(assignment.items.map((i: any) => i.toString()));
-        effectiveItems = order.items.filter((item: any) => assignedProductIds.has(item.productId?.toString()));
+      
+      // If no items matched by sellerId, use assignedSellers to find items
+      if (sellerItems.length === 0 && assignment) {
+        if (assignment.items?.length) {
+          const assignedProductIds = new Set(assignment.items.map((i: any) => i.toString()));
+          sellerItems = order.items.filter((item: any) => 
+            assignedProductIds.has(item.productId?.toString())
+          );
+        } else {
+          // If no specific items listed, show all items
+          sellerItems = order.items;
+        }
       }
-      if (effectiveItems.length === 0 && hasSellerAssignment) {
-        effectiveItems = order.items;
-      }
-      const itemsForTotals = effectiveItems;
-      const grossTotal = itemsForTotals.reduce((sum: number, item: any) => 
+      
+      const grossTotal = sellerItems.reduce((sum: number, item: any) => 
         sum + (item.sellerPrice || item.price) * item.quantity, 0
       );
-      const totalCommission = itemsForTotals.reduce((sum: number, item: any) => 
+      const totalCommission = sellerItems.reduce((sum: number, item: any) => 
         sum + (item.commissionAmount || 0), 0
       );
       
       return {
         ...order,
-        items: effectiveItems,
-        sellerTotal: grossTotal - totalCommission, // Net earnings after commission
+        items: sellerItems,
+        sellerTotal: grossTotal - totalCommission,
         grossTotal,
         totalCommission
       };
-    });
+    }).filter(order => order.items.length > 0);
     
     return NextResponse.json({ orders: filteredOrders });
   } catch (error) {

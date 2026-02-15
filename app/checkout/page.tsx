@@ -46,6 +46,7 @@ export default function Checkout() {
 
     try {
       const userId = localStorage.getItem('userId') || 'guest';
+      const userEmail = localStorage.getItem('userEmail') || '';
       const phoneNumber = localStorage.getItem('userPhone') || formData.phone;
       
       const calculatedGstAmount = cart.reduce((sum, item: any) => {
@@ -55,6 +56,11 @@ export default function Checkout() {
         return sum + gst + cess;
       }, 0);
 
+      const deliveryAddress = {
+        ...formData,
+        email: userEmail
+      };
+
       if (formData.paymentMethod === 'phonepe') {
         const orderRes = await fetch('/api/payment/phonepe/pending', {
           method: 'POST',
@@ -63,7 +69,7 @@ export default function Checkout() {
             userId,
             phoneNumber,
             items: cart,
-            deliveryAddress: formData,
+            deliveryAddress,
             paymentMethod: 'phonepe',
             subtotal,
             gstAmount: calculatedGstAmount,
@@ -110,7 +116,7 @@ export default function Checkout() {
           userId,
           phoneNumber,
           items: cart,
-          deliveryAddress: formData,
+          deliveryAddress,
           paymentMethod: formData.paymentMethod,
           subtotal,
           gstAmount: calculatedGstAmount,

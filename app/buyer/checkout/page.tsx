@@ -87,14 +87,28 @@ export default function BuyerCheckout() {
 
         const processed = allSlots.map((s: any) => {
           const slot = { ...s };
+          const is24x7 = s.express24x7 === true;
+          
+          if (is24x7) {
+            slot.disabled = false;
+            slot.disabledReason = undefined;
+            return slot;
+          }
+          
           if (s.orderCutoffTime) {
             const [cutoffH, cutoffM] = s.orderCutoffTime.split(':').map(Number);
             const cutoffTime = cutoffH * 60 + cutoffM;
             const isPastCutoff = currentTime >= cutoffTime;
 
             if (s.isExpress) {
-              slot.disabled = isPastCutoff;
-              slot.disabledReason = isPastCutoff ? 'Cutoff time passed' : undefined;
+              const is24x7 = s.express24x7 === true;
+              if (is24x7) {
+                slot.disabled = false;
+                slot.disabledReason = undefined;
+              } else {
+                slot.disabled = isPastCutoff;
+                slot.disabledReason = isPastCutoff ? 'Cutoff time passed' : undefined;
+              }
             } else {
               const dayAvailableTomorrow = !s.daysOfWeek || s.daysOfWeek.length === 0 || s.daysOfWeek.includes(tomorrowDay);
               const dayAvailableDayAfter = !s.daysOfWeek || s.daysOfWeek.length === 0 || s.daysOfWeek.includes(dayAfterTomorrowDay);
@@ -211,6 +225,11 @@ export default function BuyerCheckout() {
         });
         if (res.ok) {
           const data = await res.json();
+          await fetch('/api/cart', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: userId || 'guest' })
+          });
           clearCart();
           router.push(`/order-confirmation?orderId=${data.order._id}`);
         } else {
@@ -257,6 +276,11 @@ export default function BuyerCheckout() {
 
         const paymentData = await paymentRes.json();
         if (paymentData.success) {
+          await fetch('/api/cart', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: userId || 'guest' })
+          });
           clearCart();
           window.location.href = paymentData.paymentUrl;
           return;

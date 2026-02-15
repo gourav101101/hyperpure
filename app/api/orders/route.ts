@@ -22,9 +22,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
     
-    const conditions: Array<Record<string, string>> = [{ phoneNumber: userId }];
+    const conditions: Array<Record<string, any>> = [
+      { phoneNumber: userId },
+      { 'deliveryAddress.email': userId }
+    ];
+    
     if (mongoose.Types.ObjectId.isValid(userId)) {
       conditions.unshift({ userId });
+    }
+    
+    // Check if userId is an email
+    if (userId.includes('@')) {
+      const user = await mongoose.connection.db.collection('users').findOne({ email: userId });
+      if (user) {
+        conditions.unshift({ userId: user._id });
+      }
     }
     
     const orders = await Order.find({ $or: conditions })
@@ -42,6 +54,15 @@ export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json();
+    
+    // Find user by email if provided
+    let userId = body.userId;
+    if (body.deliveryAddress?.email) {
+      const user = await mongoose.connection.db.collection('users').findOne({ email: body.deliveryAddress.email });
+      if (user) {
+        userId = user._id.toString();
+      }
+    }
     
     // Use smart routing to assign sellers
     const routedOrder = await OrderRouter.routeOrder(
@@ -95,12 +116,12 @@ export async function POST(req: NextRequest) {
     }));
     
     // Create order
-    const userId = typeof body.userId === 'string' && mongoose.Types.ObjectId.isValid(body.userId)
-      ? new mongoose.Types.ObjectId(body.userId)
+    const finalUserId = typeof userId === 'string' && mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
       : undefined;
 
     const order = await Order.create({
-      userId,
+      userId: finalUserId,
       phoneNumber: body.phoneNumber,
       items: orderItems,
       subtotal: body.subtotal,
@@ -127,26 +148,59 @@ export async function POST(req: NextRequest) {
         actionText: 'View Order',
         priority: 'high'
       });
-      
-      // Send real-time notification
-      await sendNotification({
-        userType: 'seller',
-        userId: sellerId,
-        type: 'order',
-        title: '🛒 New Order!',
-        message: `Order #${order._id.toString().slice(-6)} received`,
-        link: '/seller/orders'
-      });
     }
     
-    // Notify admin
-    await sendNotification({
+    // Create notification for admin
+    await Notification.create({
+      userId: 'admin',
       userType: 'admin',
-      type: 'order',
-      title: '🛒 New Order Placed',
+      type: 'new_order',
+      title: 'New Order Placed',
       message: `Order #${order._id.toString().slice(-6)} - ₹${body.totalAmount}`,
-      link: '/admin/dashboard'
+      orderId: order._id,
+      actionUrl: '/admin/dashboard',
+      priority: 'high'
     });
+    
+    // Emit socket events for real-time notifications
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/socket/emit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          events: [
+            ...Array.from(sellerGroups.keys()).map(sellerId => ({
+              room: `seller-${sellerId}`,
+              event: 'notification',
+              data: {
+                _id: new mongoose.Types.ObjectId().toString(),
+                type: 'new_order',
+                title: 'New Order Received!',
+                message: `You have a new order #${order._id.toString().slice(-6)}`,
+                actionUrl: '/seller/orders',
+                isRead: false,
+                createdAt: new Date().toISOString()
+              }
+            })),
+            {
+              room: 'admin-admin',
+              event: 'notification',
+              data: {
+                _id: new mongoose.Types.ObjectId().toString(),
+                type: 'new_order',
+                title: 'New Order Placed',
+                message: `Order #${order._id.toString().slice(-6)} - ₹${body.totalAmount}`,
+                actionUrl: '/admin/dashboard',
+                isRead: false,
+                createdAt: new Date().toISOString()
+              }
+            }
+          ]
+        })
+      });
+    } catch (err) {
+      console.error('Socket emit error:', err);
+    }
     
     return NextResponse.json({ success: true, order });
   } catch (error) {

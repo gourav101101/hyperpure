@@ -26,7 +26,8 @@ export const initSocket = (res: NextApiResponseServerIO) => {
     io.on('connection', (socket) => {
       console.log('✅ Client connected:', socket.id);
 
-      socket.on('join-room', (room: string) => {
+      socket.on('join', ({ userId, userType }) => {
+        const room = `${userType}-${userId}`;
         socket.join(room);
         console.log(`👤 Socket ${socket.id} joined room: ${room}`);
       });
