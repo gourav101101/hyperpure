@@ -8,6 +8,7 @@ import Footer from "../components/Footer";
 import { useCart } from "../context/CartContext";
 import type { CartItem } from "../context/CartContext";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { addToCart as addToCartAction, clearCart as clearCartAction } from "../store/cartSlice";
 import { setSelectedSlot, setNeedInvoice } from "../store/checkoutSlice";
 
 export default function CartPage() {
@@ -719,9 +720,9 @@ function CheckoutForm({ cart, totalAmount, selectedSlot, onClose }: CheckoutForm
     setLoading(true);
 
     const userPhone = localStorage.getItem('userPhone');
-    const userId = localStorage.getItem('userId');
+    const authId = localStorage.getItem('userId') || userPhone;
     const orderData = {
-      userId: userId || "temp_user_id",
+      userId: authId || "temp_user_id",
       phoneNumber: userPhone || formData.phone,
       items: cart,
       subtotal: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),

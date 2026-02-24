@@ -17,10 +17,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const shouldEnableSocket =
-      process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_ENABLE_SOCKET === 'true';
-
-    if (!shouldEnableSocket) return;
+    // Disable socket in production/serverless
+    if (process.env.NEXT_PUBLIC_ENABLE_SOCKET !== 'true') return;
 
     const baseUrl = getBaseUrl();
     if (!baseUrl) return;

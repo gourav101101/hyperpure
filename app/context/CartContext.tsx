@@ -32,13 +32,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
   const cart = useAppSelector((state) => state.cart.items);
   const cartAnimation = useAppSelector((state) => state.cart.cartAnimation);
+  const getAuthId = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('userId') || localStorage.getItem('userPhone');
+  };
 
   useEffect(() => {
     const syncCart = async () => {
-      const userId = localStorage.getItem('userId');
-      if (userId) {
+      const authId = getAuthId();
+      if (authId) {
         try {
-          const res = await fetch(`/api/cart?userId=${userId}`);
+          const res = await fetch(`/api/cart?userId=${encodeURIComponent(authId)}`);
           const data = await res.json();
           if (data.cart) {
             dispatch(clearCartAction());
@@ -50,6 +54,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     };
     syncCart();
+    
+    // Refresh cart when window gains focus
+    const handleFocus = () => syncCart();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const addToCart = (item: CartItem) => {
@@ -67,13 +76,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = async () => {
     dispatch(clearCartAction());
-    const userId = localStorage.getItem('userId');
-    if (userId) {
+    const authId = getAuthId();
+    if (authId) {
       try {
         await fetch('/api/cart', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
+          body: JSON.stringify({ userId: authId })
         });
       } catch (error) {
         console.error('Failed to clear backend cart:', error);
