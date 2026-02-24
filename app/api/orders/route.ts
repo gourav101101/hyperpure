@@ -158,6 +158,16 @@ export async function POST(req: NextRequest) {
         actionText: 'View Order',
         priority: 'high'
       });
+      
+      // Send push notification to seller
+      await sendNotification({
+        userType: 'seller',
+        userId: sellerId,
+        type: 'order',
+        title: 'New Order Received! 🛒',
+        message: `Order #${order._id.toString().slice(-6)} confirmed! Estimated delivery tomorrow`,
+        orderId: order._id.toString()
+      });
     }
     
     // Create notification for admin
@@ -171,6 +181,33 @@ export async function POST(req: NextRequest) {
       actionUrl: '/admin/dashboard',
       priority: 'high'
     });
+    
+    // Send push notification to admin
+    await sendNotification({
+      userType: 'admin',
+      type: 'order',
+      title: 'New Order Placed 📦',
+      message: `Order #${order._id.toString().slice(-6)} - ₹${body.totalAmount}`,
+      orderId: order._id.toString()
+    });
+    
+    // Send push notification to user (customer) - ALWAYS send to all mobile devices
+    console.log('📱 Sending customer notification...');
+    try {
+      const result = await sendNotification({
+        userType: 'customer',
+        userId: finalUserId?.toString(),
+        phoneNumber: body.phoneNumber,
+        email: body.deliveryAddress?.email,
+        type: 'order',
+        title: 'Order Confirmed! 🎉',
+        message: `Order #${order._id.toString().slice(-6)} confirmed! Estimated delivery tomorrow`,
+        orderId: order._id.toString()
+      });
+      console.log('✅ Customer notification sent:', result);
+    } catch (notifError) {
+      console.error('❌ Customer notification failed:', notifError);
+    }
     
     // Emit socket events for real-time notifications
     try {

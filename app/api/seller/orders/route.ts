@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dbConnect from '@/lib/mongodb';
 import Order from '@/models/Order';
 import SellerPerformance from '@/models/SellerPerformance';
+import { sendNotification } from '@/lib/notifications';
 
 export async function GET(req: NextRequest) {
   try {
@@ -138,6 +139,35 @@ export async function PUT(req: NextRequest) {
     }
     
     await order.save();
+
+    // Send notification to customer about status update
+    if (status) {
+      const statusMessages = {
+        'processing': 'is being prepared',
+        'out_for_delivery': 'is out for delivery', 
+        'delivered': 'has been delivered'
+      };
+      
+      const message = statusMessages[status as keyof typeof statusMessages];
+      if (message) {
+        console.log('📱 Sending status update notification to customer...');
+        try {
+          await sendNotification({
+            userType: 'customer',
+            userId: order.userId?.toString(),
+            phoneNumber: order.phoneNumber?.includes('@') ? undefined : order.phoneNumber,
+            email: order.phoneNumber?.includes('@') ? order.phoneNumber : order.deliveryAddress?.email,
+            type: 'order',
+            title: `Order Update 📦`,
+            message: `Order #${order._id.toString().slice(-6)} ${message}`,
+            orderId: order._id.toString()
+          });
+          console.log('✅ Customer status notification sent');
+        } catch (notifError) {
+          console.error('❌ Customer status notification failed:', notifError);
+        }
+      }
+    }
 
     try {
       await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/socket/emit`, {

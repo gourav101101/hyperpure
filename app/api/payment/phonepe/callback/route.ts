@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
+import { sendNotification } from '@/lib/notifications';
+import Notification from '@/models/Notification';
+import mongoose from 'mongoose';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,12 +28,32 @@ export async function POST(req: NextRequest) {
       await connectDB();
       
       const orderId = data.data.merchantUserId;
-      await Order.findByIdAndUpdate(orderId, {
+      const order = await Order.findByIdAndUpdate(orderId, {
         status: 'confirmed',
         paymentStatus: 'paid',
         transactionId: data.data.merchantTransactionId,
         paymentDetails: data.data
-      });
+      }, { new: true });
+
+      if (order) {
+        console.log('📱 Sending payment success notifications...');
+        
+        // Send notification to customer
+        try {
+          await sendNotification({
+            userType: 'customer',
+            userId: order.userId?.toString(),
+            email: order.phoneNumber?.includes('@') ? order.phoneNumber : order.deliveryAddress?.email,
+            type: 'order',
+            title: 'Order Confirmed! 🎉',
+            message: `Order #${order._id.toString().slice(-6)} confirmed! Estimated delivery tomorrow`,
+            orderId: order._id.toString()
+          });
+          console.log('✅ Customer notification sent');
+        } catch (notifError) {
+          console.error('❌ Customer notification failed:', notifError);
+        }
+      }
 
       return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/order-confirmation?orderId=${orderId}`);
     } else {
@@ -54,12 +77,32 @@ export async function GET(req: NextRequest) {
     if (isTest && orderId) {
       await connectDB();
       
-      await Order.findByIdAndUpdate(orderId, {
+      const order = await Order.findByIdAndUpdate(orderId, {
         status: 'confirmed',
         paymentStatus: 'paid',
         transactionId: txnId,
         paymentDetails: { test: true, message: 'Test payment successful' }
-      });
+      }, { new: true });
+
+      if (order) {
+        console.log('📱 Sending test payment notifications...');
+        
+        // Send notification to customer
+        try {
+          await sendNotification({
+            userType: 'customer',
+            userId: order.userId?.toString(),
+            email: order.phoneNumber?.includes('@') ? order.phoneNumber : order.deliveryAddress?.email,
+            type: 'order',
+            title: 'Order Confirmed! 🎉',
+            message: `Order #${order._id.toString().slice(-6)} confirmed! Estimated delivery tomorrow`,
+            orderId: order._id.toString()
+          });
+          console.log('✅ Customer notification sent');
+        } catch (notifError) {
+          console.error('❌ Customer notification failed:', notifError);
+        }
+      }
 
       return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/order-confirmation?orderId=${orderId}`);
     }

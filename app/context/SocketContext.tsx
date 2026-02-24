@@ -17,32 +17,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Disable socket in production/serverless
-    if (process.env.NEXT_PUBLIC_ENABLE_SOCKET !== 'true') return;
-
-    const baseUrl = getBaseUrl();
-    if (!baseUrl) return;
-
-    const socketInstance = io(baseUrl, {
-      path: '/api/socket/io',
-      addTrailingSlash: false,
-    });
-
-    socketInstance.on('connect', () => {
-      console.log('🟢 Socket connected:', socketInstance.id);
-      setIsConnected(true);
-    });
-
-    socketInstance.on('disconnect', () => {
-      console.log('🔴 Socket disconnected');
-      setIsConnected(false);
-    });
-
-    setSocket(socketInstance);
-
-    return () => {
-      socketInstance.disconnect();
-    };
+    // Disabled - Socket.IO doesn't work with Next.js serverless
+    return;
   }, []);
 
   return (
